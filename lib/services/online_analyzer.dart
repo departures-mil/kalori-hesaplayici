@@ -13,9 +13,10 @@ import 'ai_error.dart';
 /// depending on which API keys are available.
 class OnlineAnalyzer {
   static const geminiModels = [
-    'gemini-2.5-flash',
+    'gemini-3.5-flash',
     'gemini-flash-latest',
-    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
   ];
 
   static String _prompt(String lang, [String? hint]) {
@@ -232,9 +233,16 @@ Because the user confirmed the food, always set "is_food": true and use confiden
       throw AiError.fromHttp('Gemini', res.statusCode, res.body);
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
-    final text = (((j['candidates'] as List?)?.first as Map?)?['content']
-        as Map?)?['parts']?[0]?['text'] as String?;
-    return text;
+    // Newer models may return "thought" parts first: join only answer text.
+    final parts = ((((j['candidates'] as List?)?.firstOrNull as Map?)?['content']
+            as Map?)?['parts'] as List?) ??
+        const [];
+    final text = parts
+        .whereType<Map>()
+        .where((p) => p['thought'] != true && p['text'] is String)
+        .map((p) => p['text'] as String)
+        .join();
+    return text.isEmpty ? null : text;
   }
 
   static Future<AnalysisResult?> _openAi(
