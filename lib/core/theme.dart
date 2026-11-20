@@ -47,7 +47,7 @@ ThemeData buildTheme() {
       titleTextStyle: TextStyle(
           fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 20),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
       shadowColor: AppColors.rose.withValues(alpha: 0.15),

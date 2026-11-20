@@ -199,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _drop<T>(String label, T value, List<T> values,
           String Function(T) name, void Function(T) onChanged) =>
       DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(labelText: label, isDense: true),
         items: values
             .map((v) => DropdownMenuItem(value: v, child: Text(name(v))))
