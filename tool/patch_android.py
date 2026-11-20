@@ -26,9 +26,9 @@ open(mf, "w", encoding="utf-8").write(m)
 # ---------- build.gradle(.kts) ----------
 kts = os.path.join(android, "app", "build.gradle.kts")
 groovy = os.path.join(android, "app", "build.gradle")
-ks_path = os.environ.get("KEYSTORE_PATH", os.path.join(root, "android-signing", "release.jks")).replace("\\", "/")
-ks_pass = os.environ.get("KEYSTORE_PASSWORD", "kalori2026")
-ks_alias = os.environ.get("KEY_ALIAS", "kalori")
+ks_path = (os.environ.get("KEYSTORE_PATH") or os.path.join(root, "android-signing", "release.jks")).replace("\\", "/")
+ks_pass = os.environ.get("KEYSTORE_PASSWORD") or "kalori2026"
+ks_alias = os.environ.get("KEY_ALIAS") or "kalori"
 
 if os.path.exists(kts):
     g = open(kts, encoding="utf-8").read()
