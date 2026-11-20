@@ -16,12 +16,13 @@ class OnlineAnalyzer {
     'gemini-2.5-flash-lite',
   ];
 
-  static String _prompt(String lang) {
+  static String _prompt(String lang, [String? hint]) {
     final langName = switch (lang) {
       'tr' => 'Turkish',
       'ar' => 'Arabic',
       _ => 'English',
     };
+    _langNameCache = langName;
     return '''
 You are a professional nutritionist. Analyze the photo and estimate the calories of everything edible in it.
 It may be a plate of food, fruit, a snack, chocolate, biscuits, a drink or a packaged product.
@@ -30,8 +31,29 @@ and give nutrition values per 100 g. Be realistic; use standard nutrition tables
 Write the item names in $langName.
 Respond ONLY with JSON in exactly this shape:
 {"is_food": true, "items": [{"name": "...", "grams": 150, "kcal_per_100g": 120, "protein_per_100g": 5, "carbs_per_100g": 20, "fat_per_100g": 3, "confidence": 0.8}], "note": "short optional remark in $langName"}
-If there is no food in the photo, respond {"is_food": false, "items": [], "note": "..."}.''';
+If there is no food in the photo, respond {"is_food": false, "items": [], "note": "..."}.${_hintBlock(hint)}''';
   }
+
+  /// Extra instructions when the user typed what is on the plate.
+  static String _hintBlock(String? hint) {
+    final h = hint?.trim() ?? '';
+    if (h.isEmpty) return '';
+    return '''
+
+IMPORTANT: the user told you what is on the plate (it may be written in Turkish, English or Arabic):
+<user_list>
+$h
+</user_list>
+Treat this list as ground truth: include every food the user listed, using the user's names (translated to $_langNameCache if needed).
+If the user gave an amount (grams, pieces, spoons, slices, cups, glasses), use it to compute the grams; otherwise estimate the portion from the photo.
+Use the photo for portion sizes, cooking style (fried, oily, sauce, dressing) and any extra visible items the user did not mention.
+Because the user confirmed the food, always set "is_food": true and use confidence 0.9 or higher for the items the user listed.''';
+  }
+
+  static String _langNameCache = 'English';
+
+  /// Plate lists typed by the user, by image path (used on re-analysis).
+  static final Map<String, String> hints = {};
 
   /// Downscale + JPEG encode to keep uploads small.
   static Future<List<int>> prepareImage(File file) async {
@@ -78,11 +100,17 @@ If there is no food in the photo, respond {"is_food": false, "items": [], "note"
     );
   }
 
-  static Future<AnalysisResult?> analyze(File file, String lang) async {
+  static Future<AnalysisResult?> analyze(File file, String lang,
+      {String? hint}) async {
+    if (hint != null && hint.trim().isNotEmpty) {
+      hints[file.path] = hint;
+    } else {
+      hint = hints[file.path]; // re-analysis keeps the user's list
+    }
     final s = Settings.instance;
     final image = await prepareImage(file);
     final b64 = base64Encode(image);
-    final prompt = _prompt(lang);
+    final prompt = _prompt(lang, hint);
     Object? lastError;
 
     if (s.geminiKey.isNotEmpty) {

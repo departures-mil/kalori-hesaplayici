@@ -74,6 +74,53 @@ class FoodDb {
     return null;
   }
 
+  static String _norm(String s) => s
+      .toLowerCase()
+      .replaceAll('ı', 'i')
+      .replaceAll('İ', 'i')
+      .replaceAll('ş', 's')
+      .replaceAll('ğ', 'g')
+      .replaceAll('ü', 'u')
+      .replaceAll('ö', 'o')
+      .replaceAll('ç', 'c')
+      .replaceAll(RegExp(r'[أإآ]'), 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  /// Best single match for a free-text food name typed by the user.
+  Food? bestMatch(String q) {
+    final s = _norm(q);
+    if (s.length < 2) return null;
+    Food? best;
+    var bestScore = 0;
+    for (final f in foods) {
+      for (final n in [f.tr, f.en, f.ar]) {
+        final x = _norm(n);
+        if (x.isEmpty) continue;
+        int score = 0;
+        if (x == s) {
+          score = 100;
+        } else if (x.startsWith(s) || s.startsWith(x)) {
+          score = 70 - (x.length - s.length).abs();
+        } else if (x.contains(s) || s.contains(x)) {
+          score = 50 - (x.length - s.length).abs();
+        } else {
+          // word overlap
+          final a = s.split(' ').where((w) => w.length > 2).toSet();
+          final b = x.split(' ').where((w) => w.length > 2).toSet();
+          final common = a.intersection(b).length;
+          if (common > 0) score = 20 * common - (b.length - common);
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = f;
+        }
+      }
+    }
+    return bestScore >= 15 ? best : null;
+  }
+
   List<Food> search(String q, String lang) {
     final s = q.toLowerCase().trim();
     if (s.isEmpty) return foods;

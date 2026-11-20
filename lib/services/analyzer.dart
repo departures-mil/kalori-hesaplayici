@@ -18,13 +18,15 @@ class Analyzer {
   static Future<AnalysisResult> analyze(
     File file,
     String lang, {
+    String? hint,
     void Function(AnalysisStage)? onStage,
   }) async {
+    final h = (hint ?? '').trim().isEmpty ? null : hint!.trim();
     String? note;
     if (await isOnline()) {
       onStage?.call(AnalysisStage.online);
       try {
-        final r = await OnlineAnalyzer.analyze(file, lang);
+        final r = await OnlineAnalyzer.analyze(file, lang, hint: h);
         if (r != null) {
           return AnalysisResult(
             items: r.items,
@@ -32,6 +34,7 @@ class Analyzer {
             note: r.note,
             imagePath: file.path,
             modelUsed: r.modelUsed,
+            hint: h,
           );
         }
       } catch (_) {
@@ -41,13 +44,14 @@ class Analyzer {
       note = 'no_internet';
     }
     onStage?.call(AnalysisStage.offline);
-    final r = await OfflineAnalyzer.analyze(file, lang);
+    final r = await OfflineAnalyzer.analyze(file, lang, hint: h);
     return AnalysisResult(
       items: r.items,
       source: r.source,
       note: note,
       imagePath: file.path,
       modelUsed: r.modelUsed,
+      hint: h,
     );
   }
 }

@@ -4,10 +4,24 @@ import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 
 import '../data/models.dart';
 import 'food_db.dart';
+import 'plate_hint.dart';
 
 /// On-device analysis with ML Kit image labeling + local nutrition table.
 class OfflineAnalyzer {
-  static Future<AnalysisResult> analyze(File file, String lang) async {
+  static Future<AnalysisResult> analyze(File file, String lang,
+      {String? hint}) async {
+    // 1) Foods the user typed: these are trusted and come first.
+    final db0 = FoodDb.instance;
+    final hinted = <FoodItem>[];
+    final hintedIds = <String>{};
+    for (final h in PlateHint.parse(hint)) {
+      final f = db0.bestMatch(h.name);
+      if (f == null) continue;
+      if (hintedIds.contains(f.id)) continue;
+      hintedIds.add(f.id);
+      final grams = h.grams ?? (h.count != null ? h.count! * f.portion : null);
+      hinted.add(FoodItem.fromFood(f, lang, grams: grams)..confidence = 0.95);
+    }
     final labeler =
         ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.35));
     try {
@@ -16,8 +30,8 @@ class OfflineAnalyzer {
       labels.sort((a, b) => b.confidence.compareTo(a.confidence));
 
       final db = FoodDb.instance;
-      final items = <FoodItem>[];
-      final seen = <String>{};
+      final items = <FoodItem>[...hinted];
+      final seen = <String>{...hintedIds};
       var foodish = false;
       for (final l in labels) {
         final txt = l.label.toLowerCase();
@@ -28,6 +42,8 @@ class OfflineAnalyzer {
         }
         final f = db.fromLabel(l.label);
         if (f == null || seen.contains(f.id)) continue;
+        // with a user list, only add very confident extra items
+        if (hinted.isNotEmpty && l.confidence < 0.7) continue;
         // skip very generic mappings when we already have specific ones
         final generic = const [
           'food', 'dish', 'cuisine', 'lunch', 'dinner', 'breakfast', 'brunch',
@@ -37,7 +53,7 @@ class OfflineAnalyzer {
         if (generic && items.isNotEmpty) continue;
         seen.add(f.id);
         items.add(FoodItem.fromFood(f, lang)..confidence = l.confidence);
-        if (items.length >= 4) break;
+        if (items.length >= hinted.length + 4) break;
       }
       // If only a generic hit, keep just one.
       if (items.isEmpty && foodish) {
