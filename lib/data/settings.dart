@@ -91,6 +91,22 @@ class Settings extends ChangeNotifier {
     return v.isNotEmpty ? v : kBundledGeminiKey;
   }
 
+  /// Key typed by the user in Settings (may be empty).
+  String get manualGeminiKey => _p.getString('geminiKey') ?? '';
+
+  /// Keys to try, in order: the user's own key, then the bundled one.
+  List<String> get geminiKeys => [
+        for (final k in {manualGeminiKey, kBundledGeminiKey})
+          if (k.isNotEmpty) k,
+      ];
+
+  void clearKeys() {
+    _p.remove('geminiKey');
+    _p.remove('openAiKey');
+    _p.remove('claudeKey');
+    notifyListeners();
+  }
+
   String get openAiKey {
     final v = _p.getString('openAiKey') ?? '';
     return v.isNotEmpty ? v : kBundledOpenAiKey;

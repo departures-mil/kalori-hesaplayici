@@ -14,10 +14,12 @@ import 'ai_error.dart';
 class OnlineAnalyzer {
   static const geminiModels = [
     'gemini-3.5-flash',
-    'gemini-flash-latest',
     'gemini-3.5-flash-lite',
+    'gemini-flash-latest',
     'gemini-flash-lite-latest',
   ];
+
+  static const _timeout = Duration(seconds: 45);
 
   static String _prompt(String lang, [String? hint]) {
     final langName = switch (lang) {
@@ -120,16 +122,21 @@ Because the user confirmed the food, always set "is_food": true and use confiden
       if (best == null || err.priority > best!.priority) best = err;
     }
 
-    if (s.geminiKey.isNotEmpty) {
+    // The key typed in Settings first, then the one bundled with the app.
+    for (final key in s.geminiKeys) {
       for (final model in geminiModels) {
         try {
-          final r = await _gemini(s.geminiKey, model, prompt, b64);
+          final r = await _gemini(key, model, prompt, b64);
           if (r != null) return r;
         } catch (e) {
-          keep(e, 'Gemini');
-          final k = best?.kind;
-          // no point trying other Gemini models for these
-          if (k == AiErrorKind.region || k == AiErrorKind.invalidKey) break;
+          final err = toAiError(e, 'Gemini');
+          keep(err, 'Gemini');
+          // no point trying other models with this key
+          if (err.kind == AiErrorKind.invalidKey ||
+              err.kind == AiErrorKind.denied ||
+              err.kind == AiErrorKind.region) {
+            break;
+          }
         }
       }
     }
@@ -157,7 +164,10 @@ Because the user confirmed the food, always set "is_food": true and use confiden
 
   static AiError toAiError(Object e, String provider) {
     if (e is AiError) return e;
-    if (e is SocketException || e is TimeoutException || e is http.ClientException) {
+    if (e is TimeoutException) {
+      return AiError(AiErrorKind.timeout, provider, e.toString());
+    }
+    if (e is SocketException || e is http.ClientException) {
       return AiError(AiErrorKind.network, provider, e.toString());
     }
     return AiError(AiErrorKind.other, provider, e.toString());
@@ -178,10 +188,18 @@ Because the user confirmed the food, always set "is_food": true and use confiden
       }
     }
 
-    if (s.geminiKey.isEmpty) {
+    if (s.geminiKeys.isEmpty) {
       out['Gemini'] = AiError(AiErrorKind.noKey, 'Gemini', '');
     } else {
-      await run('Gemini', () => _geminiRaw(s.geminiKey, geminiModels.first, p, null));
+      final manual = s.manualGeminiKey;
+      if (manual.isNotEmpty) {
+        await run('Gemini (elle)',
+            () => _geminiRaw(manual, geminiModels.first, p, null));
+      }
+      if (kBundledGeminiKey.isNotEmpty && kBundledGeminiKey != manual) {
+        await run('Gemini (app)',
+            () => _geminiRaw(kBundledGeminiKey, geminiModels.first, p, null));
+      }
     }
     if (s.openAiKey.isEmpty) {
       out['OpenAI'] = AiError(AiErrorKind.noKey, 'OpenAI', '');
@@ -222,13 +240,16 @@ Because the user confirmed the food, always set "is_food": true and use confiden
       'generationConfig': {
         'temperature': 0.2,
         'response_mime_type': 'application/json',
+        // Gemini 3.x "thinks" for ~30 s by default; low is ~3x faster.
+        if (model.startsWith('gemini-3'))
+          'thinkingConfig': {'thinkingLevel': 'low'},
       }
     };
     final res = await http
         .post(uri,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(body))
-        .timeout(const Duration(seconds: 60));
+        .timeout(_timeout);
     if (res.statusCode != 200) {
       throw AiError.fromHttp('Gemini', res.statusCode, res.body);
     }
@@ -280,7 +301,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
               'Authorization': 'Bearer $key'
             },
             body: jsonEncode(body))
-        .timeout(const Duration(seconds: 60));
+        .timeout(_timeout);
     if (res.statusCode != 200) {
       throw AiError.fromHttp('OpenAI', res.statusCode, res.body);
     }
@@ -327,7 +348,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
               'anthropic-version': '2023-06-01'
             },
             body: jsonEncode(body))
-        .timeout(const Duration(seconds: 60));
+        .timeout(_timeout);
     if (res.statusCode != 200) {
       throw AiError.fromHttp('Claude', res.statusCode, res.body);
     }
