@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:image/image.dart' as img;
 
 import '../data/models.dart';
 import '../data/settings.dart';
+import 'ai_error.dart';
 
 /// Online photo analysis. Tries Gemini first, then OpenAI, then Claude,
 /// depending on which API keys are available.
@@ -111,7 +113,11 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     final image = await prepareImage(file);
     final b64 = base64Encode(image);
     final prompt = _prompt(lang, hint);
-    Object? lastError;
+    AiError? best;
+    void keep(Object e, String provider) {
+      final err = toAiError(e, provider);
+      if (best == null || err.priority > best!.priority) best = err;
+    }
 
     if (s.geminiKey.isNotEmpty) {
       for (final model in geminiModels) {
@@ -119,7 +125,10 @@ Because the user confirmed the food, always set "is_food": true and use confiden
           final r = await _gemini(s.geminiKey, model, prompt, b64);
           if (r != null) return r;
         } catch (e) {
-          lastError = e;
+          keep(e, 'Gemini');
+          final k = best?.kind;
+          // no point trying other Gemini models for these
+          if (k == AiErrorKind.region || k == AiErrorKind.invalidKey) break;
         }
       }
     }
@@ -128,7 +137,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
         final r = await _openAi(s.openAiKey, prompt, b64);
         if (r != null) return r;
       } catch (e) {
-        lastError = e;
+        keep(e, 'OpenAI');
       }
     }
     if (s.claudeKey.isNotEmpty) {
@@ -136,15 +145,65 @@ Because the user confirmed the food, always set "is_food": true and use confiden
         final r = await _claude(s.claudeKey, prompt, b64);
         if (r != null) return r;
       } catch (e) {
-        lastError = e;
+        keep(e, 'Claude');
       }
     }
-    if (lastError != null) throw lastError;
-    return null;
+    if (s.geminiKey.isEmpty && s.openAiKey.isEmpty && s.claudeKey.isEmpty) {
+      throw AiError(AiErrorKind.noKey, '-', 'no API key');
+    }
+    throw best ?? AiError(AiErrorKind.other, '-', 'empty response');
+  }
+
+  static AiError toAiError(Object e, String provider) {
+    if (e is AiError) return e;
+    if (e is SocketException || e is TimeoutException || e is http.ClientException) {
+      return AiError(AiErrorKind.network, provider, e.toString());
+    }
+    return AiError(AiErrorKind.other, provider, e.toString());
+  }
+
+  /// Sends a tiny text-only request to every provider that has a key.
+  /// Returns provider -> null (works) or the error.
+  static Future<Map<String, AiError?>> testAll() async {
+    final s = Settings.instance;
+    const p = 'Reply with JSON: {"ok": true}';
+    final out = <String, AiError?>{};
+    Future<void> run(String name, Future<Object?> Function() f) async {
+      try {
+        await f();
+        out[name] = null;
+      } catch (e) {
+        out[name] = toAiError(e, name);
+      }
+    }
+
+    if (s.geminiKey.isEmpty) {
+      out['Gemini'] = AiError(AiErrorKind.noKey, 'Gemini', '');
+    } else {
+      await run('Gemini', () => _geminiRaw(s.geminiKey, geminiModels.first, p, null));
+    }
+    if (s.openAiKey.isEmpty) {
+      out['OpenAI'] = AiError(AiErrorKind.noKey, 'OpenAI', '');
+    } else {
+      await run('OpenAI', () => _openAiRaw(s.openAiKey, p, null));
+    }
+    if (s.claudeKey.isEmpty) {
+      out['Claude'] = AiError(AiErrorKind.noKey, 'Claude', '');
+    } else {
+      await run('Claude', () => _claudeRaw(s.claudeKey, p, null));
+    }
+    return out;
   }
 
   static Future<AnalysisResult?> _gemini(
       String key, String model, String prompt, String b64) async {
+    final text = await _geminiRaw(key, model, prompt, b64);
+    if (text == null) return null;
+    return _parse(text, model);
+  }
+
+  static Future<String?> _geminiRaw(
+      String key, String model, String prompt, String? b64) async {
     final uri = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$key');
     final body = {
@@ -152,9 +211,10 @@ Because the user confirmed the food, always set "is_food": true and use confiden
         {
           'parts': [
             {'text': prompt},
-            {
-              'inline_data': {'mime_type': 'image/jpeg', 'data': b64}
-            }
+            if (b64 != null)
+              {
+                'inline_data': {'mime_type': 'image/jpeg', 'data': b64}
+              }
           ]
         }
       ],
@@ -169,17 +229,23 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             body: jsonEncode(body))
         .timeout(const Duration(seconds: 60));
     if (res.statusCode != 200) {
-      throw HttpException('Gemini $model: ${res.statusCode} ${res.body}');
+      throw AiError.fromHttp('Gemini', res.statusCode, res.body);
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
     final text = (((j['candidates'] as List?)?.first as Map?)?['content']
         as Map?)?['parts']?[0]?['text'] as String?;
-    if (text == null) return null;
-    return _parse(text, model);
+    return text;
   }
 
   static Future<AnalysisResult?> _openAi(
       String key, String prompt, String b64) async {
+    final text = await _openAiRaw(key, prompt, b64);
+    if (text == null) return null;
+    return _parse(text, 'gpt-4o-mini');
+  }
+
+  static Future<String?> _openAiRaw(
+      String key, String prompt, String? b64) async {
     final uri = Uri.parse('https://api.openai.com/v1/chat/completions');
     final body = {
       'model': 'gpt-4o-mini',
@@ -190,10 +256,11 @@ Because the user confirmed the food, always set "is_food": true and use confiden
           'role': 'user',
           'content': [
             {'type': 'text', 'text': prompt},
-            {
-              'type': 'image_url',
-              'image_url': {'url': 'data:image/jpeg;base64,$b64'}
-            }
+            if (b64 != null)
+              {
+                'type': 'image_url',
+                'image_url': {'url': 'data:image/jpeg;base64,$b64'}
+              }
           ]
         }
       ]
@@ -207,16 +274,21 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             body: jsonEncode(body))
         .timeout(const Duration(seconds: 60));
     if (res.statusCode != 200) {
-      throw HttpException('OpenAI: ${res.statusCode} ${res.body}');
+      throw AiError.fromHttp('OpenAI', res.statusCode, res.body);
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
-    final text = j['choices'][0]['message']['content'] as String?;
-    if (text == null) return null;
-    return _parse(text, 'gpt-4o-mini');
+    return j['choices'][0]['message']['content'] as String?;
   }
 
   static Future<AnalysisResult?> _claude(
       String key, String prompt, String b64) async {
+    final text = await _claudeRaw(key, prompt, b64);
+    if (text == null) return null;
+    return _parse(text, 'claude');
+  }
+
+  static Future<String?> _claudeRaw(
+      String key, String prompt, String? b64) async {
     final uri = Uri.parse('https://api.anthropic.com/v1/messages');
     final body = {
       'model': 'claude-sonnet-4-5',
@@ -225,14 +297,15 @@ Because the user confirmed the food, always set "is_food": true and use confiden
         {
           'role': 'user',
           'content': [
-            {
-              'type': 'image',
-              'source': {
-                'type': 'base64',
-                'media_type': 'image/jpeg',
-                'data': b64
-              }
-            },
+            if (b64 != null)
+              {
+                'type': 'image',
+                'source': {
+                  'type': 'base64',
+                  'media_type': 'image/jpeg',
+                  'data': b64
+                }
+              },
             {'type': 'text', 'text': prompt}
           ]
         }
@@ -248,11 +321,9 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             body: jsonEncode(body))
         .timeout(const Duration(seconds: 60));
     if (res.statusCode != 200) {
-      throw HttpException('Claude: ${res.statusCode} ${res.body}');
+      throw AiError.fromHttp('Claude', res.statusCode, res.body);
     }
     final j = jsonDecode(res.body) as Map<String, dynamic>;
-    final text = (j['content'] as List).first['text'] as String?;
-    if (text == null) return null;
-    return _parse(text, 'claude');
+    return (j['content'] as List).first['text'] as String?;
   }
 }

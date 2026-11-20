@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../data/models.dart';
+import 'ai_error.dart';
 import 'offline_analyzer.dart';
 import 'online_analyzer.dart';
 
@@ -23,6 +24,7 @@ class Analyzer {
   }) async {
     final h = (hint ?? '').trim().isEmpty ? null : hint!.trim();
     String? note;
+    AiError? err;
     if (await isOnline()) {
       onStage?.call(AnalysisStage.online);
       try {
@@ -37,8 +39,9 @@ class Analyzer {
             hint: h,
           );
         }
-      } catch (_) {
-        note = 'online_failed';
+      } catch (e) {
+        err = OnlineAnalyzer.toAiError(e, '-');
+        note = err.kind == AiErrorKind.noKey ? 'no_key' : 'online_failed';
       }
     } else {
       note = 'no_internet';
@@ -52,6 +55,8 @@ class Analyzer {
       imagePath: file.path,
       modelUsed: r.modelUsed,
       hint: h,
+      errorKey: err?.key,
+      errorDetail: err?.toString(),
     );
   }
 }

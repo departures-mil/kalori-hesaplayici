@@ -96,15 +96,19 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _reanalyzing = true);
     try {
       final r = await OnlineAnalyzer.analyze(
-          File(imagePath!), Settings.instance.lang);
+          File(imagePath!), Settings.instance.lang,
+          hint: widget.result.hint);
       if (r != null && mounted) {
         setState(() {
           items = r.items;
           source = r.source;
         });
       }
-    } catch (_) {
-      if (mounted) showSnack(context, S.of(context)['error_analysis']);
+    } catch (e) {
+      if (mounted) {
+        final err = OnlineAnalyzer.toAiError(e, '-');
+        showSnack(context, S.of(context)[err.key]);
+      }
     } finally {
       if (mounted) setState(() => _reanalyzing = false);
     }
