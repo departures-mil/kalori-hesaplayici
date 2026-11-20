@@ -110,6 +110,10 @@ class AnalysisResult {
   /// What the user typed about the plate contents (helps the analysis).
   final String? hint;
 
+  /// Localization key + raw detail when online AI failed.
+  final String? errorKey;
+  final String? errorDetail;
+
   AnalysisResult({
     required this.items,
     required this.source,
@@ -117,6 +121,8 @@ class AnalysisResult {
     this.imagePath,
     this.modelUsed,
     this.hint,
+    this.errorKey,
+    this.errorDetail,
   });
 
   double get totalKcal => items.fold(0, (s, i) => s + i.kcal);

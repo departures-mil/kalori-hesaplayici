@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../data/settings.dart';
 import '../l10n/strings.dart';
+import '../services/ai_error.dart';
+import '../services/online_analyzer.dart';
 import '../services/update_service.dart';
 import '../widgets/common.dart';
 import '../widgets/window_controls.dart';
@@ -147,9 +149,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   obscureText: true,
                   decoration: InputDecoration(labelText: s['claude_key'])),
               const SizedBox(height: 10),
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: FilledButton(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                OutlinedButton.icon(
+                  onPressed: _testAi,
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(90, 44)),
+                  icon: const Icon(Icons.wifi_tethering_rounded, size: 18),
+                  label: Text(s['ai_test']),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
                   onPressed: () {
                     st.setKeys(
                       gemini: _gemini.text.isEmpty ? null : _gemini.text,
@@ -162,6 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       FilledButton.styleFrom(minimumSize: const Size(90, 44)),
                   child: Text(s['save']),
                 ),
+                ],
               ),
             ],
           ),
@@ -182,6 +194,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _testAi() async {
+    final s = S.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(children: [
+          const CircularProgressIndicator(color: AppColors.rose),
+          const SizedBox(width: 16),
+          Expanded(child: Text(s['ai_testing'])),
+        ]),
+      ),
+    );
+    Map<String, AiError?> r;
+    try {
+      r = await OnlineAnalyzer.testAll();
+    } catch (e) {
+      r = {'-': OnlineAnalyzer.toAiError(e, '-')};
+    }
+    if (!mounted) return;
+    Navigator.pop(context);
+    await showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(s['ai_test']),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final e in r.entries) ...[
+                Row(children: [
+                  Icon(
+                      e.value == null
+                          ? Icons.check_circle_rounded
+                          : e.value!.kind == AiErrorKind.noKey
+                              ? Icons.remove_circle_outline_rounded
+                              : Icons.error_rounded,
+                      color: e.value == null
+                          ? Colors.green
+                          : e.value!.kind == AiErrorKind.noKey
+                              ? Colors.grey
+                              : AppColors.rose),
+                  const SizedBox(width: 8),
+                  Text(e.key,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 32, bottom: 4),
+                  child: Text(e.value == null ? s['ai_ok'] : s[e.value!.key]),
+                ),
+                if (e.value != null && e.value!.detail.isNotEmpty &&
+                    e.value!.kind != AiErrorKind.noKey)
+                  Padding(
+                    padding:
+                        const EdgeInsetsDirectional.only(start: 32, bottom: 10),
+                    child: SelectableText(e.value!.detail,
+                        style: Theme.of(c).textTheme.bodySmall),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(c), child: Text(s['ok'])),
+        ],
+      ),
     );
   }
 
