@@ -1,5 +1,16 @@
 /// Why an online AI request failed, in a form we can show to the user.
-enum AiErrorKind { noKey, invalidKey, region, quota, model, network, server, other }
+enum AiErrorKind {
+  noKey,
+  invalidKey,
+  denied,
+  region,
+  quota,
+  model,
+  timeout,
+  network,
+  server,
+  other
+}
 
 class AiError implements Exception {
   final AiErrorKind kind;
@@ -25,6 +36,8 @@ class AiError implements Exception {
         b.contains('invalid x-api-key') ||
         b.contains('authentication_error') ||
         b.contains('reported as leaked') ||
+        b.contains('service_disabled') ||
+        b.contains('has not been used in project') ||
         status == 401) {
       k = AiErrorKind.invalidKey;
     } else if (status == 429 ||
@@ -36,21 +49,25 @@ class AiError implements Exception {
     } else if (status == 404 || b.contains('not found for api version')) {
       k = AiErrorKind.model;
     } else if (status == 403) {
-      // API disabled for the project, key restricted, etc.
-      k = AiErrorKind.invalidKey;
+      // key is accepted but the request is refused (network, VPN, region...)
+      k = AiErrorKind.denied;
     } else if (status >= 500) {
       k = AiErrorKind.server;
     } else {
       k = AiErrorKind.other;
     }
-    return AiError(k, provider, '$status $short');
+    // keep just the human message from Google/OpenAI/Anthropic JSON errors
+    final m = RegExp(r'"message"\s*:\s*"([^"]{1,200})').firstMatch(body);
+    return AiError(k, provider, '$status ${m?.group(1) ?? short}');
   }
 
   /// Higher = more useful to show (a region block beats "model not found").
   int get priority => switch (kind) {
-        AiErrorKind.region => 7,
-        AiErrorKind.invalidKey => 6,
-        AiErrorKind.quota => 5,
+        AiErrorKind.region => 9,
+        AiErrorKind.denied => 8,
+        AiErrorKind.invalidKey => 7,
+        AiErrorKind.quota => 6,
+        AiErrorKind.timeout => 5,
         AiErrorKind.network => 4,
         AiErrorKind.server => 3,
         AiErrorKind.other => 2,

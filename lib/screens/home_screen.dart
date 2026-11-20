@@ -79,7 +79,8 @@ class HomeScreenState extends State<HomeScreen> {
     if (result.note == 'no_internet') {
       showSnack(context, s['no_internet_offline']);
     } else if (result.errorKey != null) {
-      showSnack(context, '${s[result.errorKey!]} ${s['offline_used']}');
+      showSnack(context,
+          '${s[result.errorKey!]} ${s['offline_used']}\n(${result.errorDetail ?? ''})');
     }
     final added = await Navigator.push<bool>(
       context,

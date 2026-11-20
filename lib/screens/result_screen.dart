@@ -107,7 +107,7 @@ class _ResultScreenState extends State<ResultScreen> {
     } catch (e) {
       if (mounted) {
         final err = OnlineAnalyzer.toAiError(e, '-');
-        showSnack(context, S.of(context)[err.key]);
+        showSnack(context, '${S.of(context)[err.key]}\n(${err.detail})');
       }
     } finally {
       if (mounted) setState(() => _reanalyzing = false);

@@ -160,6 +160,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   label: Text(s['ai_test']),
                 ),
                 const SizedBox(width: 10),
+                IconButton(
+                  tooltip: s['clear_keys'],
+                  onPressed: () {
+                    st.clearKeys();
+                    _gemini.clear();
+                    _openai.clear();
+                    _claude.clear();
+                    setState(() {});
+                    showSnack(context, s['keys_cleared']);
+                  },
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                ),
+                const SizedBox(width: 4),
                 FilledButton(
                   onPressed: () {
                     st.setKeys(

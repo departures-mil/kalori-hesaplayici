@@ -24,6 +24,10 @@ class S {
 
   static const Map<String, Map<String, String>> _m = {
     'tr': {
+      'ai_err_denied': 'Google bu isteği reddetti (403). Telefonun ağı/VPN veya bölge erişimi engelliyor olabilir.',
+      'ai_err_timeout': 'Yapay zekâ çok geç cevap verdi (zaman aşımı).',
+      'clear_keys': 'Elle girilen anahtarları sil',
+      'keys_cleared': 'Elle girilen anahtarlar silindi, uygulamanın anahtarı kullanılacak.',
       'offline_used': 'Çevrimdışı analiz kullanıldı.',
       'ai_test': 'Bağlantıyı test et',
       'ai_testing': 'Yapay zekâ servisleri test ediliyor...',
@@ -158,6 +162,10 @@ class S {
       'no': 'Hayır',
     },
     'en': {
+      'ai_err_denied': 'Google refused the request (403). The phone network/VPN or region may be blocking access.',
+      'ai_err_timeout': 'The AI answered too slowly (timeout).',
+      'clear_keys': 'Delete manually entered keys',
+      'keys_cleared': 'Manual keys deleted; the app key will be used.',
       'offline_used': 'Offline analysis was used.',
       'ai_test': 'Test connection',
       'ai_testing': 'Testing AI services...',
@@ -292,6 +300,10 @@ class S {
       'no': 'No',
     },
     'ar': {
+      'ai_err_denied': 'رفضت Google الطلب (403). قد تكون شبكة الهاتف أو VPN أو المنطقة تمنع الوصول.',
+      'ai_err_timeout': 'تأخر رد الذكاء الاصطناعي كثيرًا (انتهت المهلة).',
+      'clear_keys': 'حذف المفاتيح المدخلة يدويًا',
+      'keys_cleared': 'تم حذف المفاتيح اليدوية، سيُستخدم مفتاح التطبيق.',
       'offline_used': 'تم استخدام التحليل دون اتصال.',
       'ai_test': 'اختبار الاتصال',
       'ai_testing': 'جارٍ اختبار خدمات الذكاء الاصطناعي...',
