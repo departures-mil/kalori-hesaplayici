@@ -107,12 +107,16 @@ class AnalysisResult {
   final String? imagePath;
   final String? modelUsed;
 
+  /// What the user typed about the plate contents (helps the analysis).
+  final String? hint;
+
   AnalysisResult({
     required this.items,
     required this.source,
     this.note,
     this.imagePath,
     this.modelUsed,
+    this.hint,
   });
 
   double get totalKcal => items.fold(0, (s, i) => s + i.kcal);

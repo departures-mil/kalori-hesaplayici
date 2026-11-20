@@ -11,6 +11,7 @@ import '../l10n/strings.dart';
 import '../services/analyzer.dart';
 import '../services/barcode_service.dart';
 import '../widgets/common.dart';
+import '../widgets/plate_hint_sheet.dart';
 import 'manual_add_screen.dart';
 import 'result_screen.dart';
 
@@ -54,6 +55,8 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _analyze(ImageSource src) async {
     final file = await _pick(src);
     if (file == null || !mounted) return;
+    final hint = await showPlateHintSheet(context, file);
+    if (hint == null || !mounted) return; // cancelled
     final s = S.of(context);
     final lang = Settings.instance.lang;
     final stage = ValueNotifier<AnalysisStage>(AnalysisStage.online);
@@ -65,7 +68,7 @@ class HomeScreenState extends State<HomeScreen> {
     AnalysisResult? result;
     try {
       result = await Analyzer.analyze(file, lang,
-          onStage: (st) => stage.value = st);
+          hint: hint, onStage: (st) => stage.value = st);
     } catch (_) {}
     if (!mounted) return;
     Navigator.pop(context); // progress
