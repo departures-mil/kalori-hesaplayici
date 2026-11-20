@@ -1,0 +1,114 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Read version
+        id: ver
+        run: |
+          V=$(grep -E '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9.]+).*/\1/')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version: $V"
+
+      - name: Generate Android project
+        run: |
+          mkdir -p /tmp/keep
+          cp -r pubspec.yaml lib assets analysis_options.yaml /tmp/keep/ 2>/dev/null || true
+          flutter create . --platforms=android --project-name kalori_hesaplayici --org com.departures --overwrite
+          rm -rf lib assets pubspec.yaml analysis_options.yaml
+          cp -r /tmp/keep/. .
+          rm -f test/widget_test.dart
+          KEYSTORE_PATH=/tmp/release.jks python3 tool/patch_android.py
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release.jks
+            echo "Using keystore from secrets"
+          else
+            echo "::warning::KEYSTORE_BASE64 secret missing - generating a temporary key (in-app updates will not install over older builds)"
+            keytool -genkeypair -keystore /tmp/release.jks -storepass "${KEYSTORE_PASSWORD:-kalori2026}" \
+              -keypass "${KEYSTORE_PASSWORD:-kalori2026}" -alias "${KEY_ALIAS:-kalori}" -keyalg RSA -keysize 2048 -validity 36500 \
+              -dname "CN=Kalori Hesaplayici, O=departures-mil, C=TR"
+          fi
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build APK
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          flutter build apk --release \
+            --dart-define=GEMINI_API_KEY="$GEMINI_API_KEY" \
+            --dart-define=OPENAI_API_KEY="$OPENAI_API_KEY" \
+            --dart-define=CLAUDE_API_KEY="$CLAUDE_API_KEY"
+          mkdir -p out
+          cp build/app/outputs/flutter-apk/app-release.apk "out/KaloriHesaplayici-v${{ steps.ver.outputs.version }}.apk"
+          ls -la out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaloriHesaplayici-v${{ steps.ver.outputs.version }}
+          path: out/*.apk
+
+      - name: Release notes
+        id: notes
+        run: |
+          {
+            echo "body<<EOF"
+            echo "Kalori Hesaplayıcı v${{ steps.ver.outputs.version }}"
+            echo
+            git log -1 --pretty=%B | head -20
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: v${{ steps.ver.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
+          files: out/*.apk
+          make_latest: true
