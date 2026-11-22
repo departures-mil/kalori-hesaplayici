@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import '../data/models.dart';
 import '../data/settings.dart';
 import 'ai_error.dart';
+import 'usage.dart';
 
 /// Online photo analysis. Tries Gemini first, then OpenAI, then Claude,
 /// depending on which API keys are available.
@@ -250,6 +251,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(body))
         .timeout(_timeout);
+    await Usage.record(res.statusCode, res.body); // Ayarlar > Kullanım Limitleri
     if (res.statusCode != 200) {
       throw AiError.fromHttp('Gemini', res.statusCode, res.body);
     }
@@ -302,6 +304,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             },
             body: jsonEncode(body))
         .timeout(_timeout);
+    await Usage.record(res.statusCode, res.body); // Ayarlar > Kullanım Limitleri
     if (res.statusCode != 200) {
       throw AiError.fromHttp('OpenAI', res.statusCode, res.body);
     }
@@ -349,6 +352,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
             },
             body: jsonEncode(body))
         .timeout(_timeout);
+    await Usage.record(res.statusCode, res.body); // Ayarlar > Kullanım Limitleri
     if (res.statusCode != 200) {
       throw AiError.fromHttp('Claude', res.statusCode, res.body);
     }

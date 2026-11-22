@@ -7,6 +7,7 @@ import '../services/ai_error.dart';
 import '../services/online_analyzer.dart';
 import '../services/update_service.dart';
 import '../widgets/common.dart';
+import '../widgets/usage_card.dart';
 import '../widgets/window_controls.dart';
 import 'contact_section.dart';
 
@@ -207,6 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        _section(s['usage_title']),
+        const UsageCard(),
         _section(s['contact_title']),
         const ContactSection(),
       ],
