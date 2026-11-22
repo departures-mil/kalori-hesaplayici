@@ -64,19 +64,56 @@ class _ContactSectionState extends State<ContactSection> {
         body['email'] = mail;
         body['_replyto'] = mail;
       }
-      final r = await http
-          .post(Uri.parse('https://formsubmit.co/ajax/$to'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Referer': 'https://departures-mil.github.io/kalori-hesaplayici/',
-                'Origin': 'https://departures-mil.github.io',
-              },
-              body: jsonEncode(body))
-          .timeout(const Duration(seconds: 30));
-      if (r.statusCode >= 300 && !r.body.toLowerCase().contains('activat')) {
-        throw Exception('${r.statusCode}');
+      // İki bağımsız kanal; biri kabul ederse mesaj ulaşmış sayılır:
+      //  1) yöneticinin mesaj kutusu (Firestore "mesajlar", yalnızca ekleme; etkinleştirme gerekmez)
+      //  2) e-posta kopyası (FormSubmit; "etkinleştirme gerekli" yanıtı ulaştı sayılmaz)
+      Map<String, dynamic> f(String v) => {'stringValue': v.length > 4000 ? v.substring(0, 4000) : v};
+      final fields = <String, dynamic>{
+        'mesaj': f(msg),
+        'konu': f('Kalori Hesaplayıcı · Mesaj'),
+        'dil': f(s.code),
+        'surum': f(ver),
+        'platform': f('Kalori Hesaplayıcı · ${Platform.operatingSystem}'),
+        'zaman': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
+      };
+      if (_name.text.trim().isNotEmpty) fields['ad'] = f(_name.text.trim());
+      if (mail.isNotEmpty) fields['iletisim'] = f(mail);
+      Future<bool> inbox() async {
+        try {
+          final r = await http
+              .post(
+                  Uri.parse('https://firestore.googleapis.com/v1/projects/comm-calc-103111111/databases/(default)/documents/'
+                      'mesajlar?key=AIzaSyB12RFS6ENPpmnnPsETfjedNH-3hmNWQvA'),
+                  headers: {'Content-Type': 'application/json'},
+                  body: jsonEncode({'fields': fields}))
+              .timeout(const Duration(seconds: 30));
+          return r.statusCode >= 200 && r.statusCode < 300;
+        } catch (_) {
+          return false;
+        }
       }
+
+      Future<bool> email() async {
+        try {
+          final r = await http
+              .post(Uri.parse('https://formsubmit.co/ajax/$to'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Referer': 'https://formsubmit.co/',
+                    'Origin': 'https://formsubmit.co',
+                  },
+                  body: jsonEncode(body))
+              .timeout(const Duration(seconds: 30));
+          final j = jsonDecode(r.body);
+          return j is Map && '${j['success']}' == 'true';
+        } catch (_) {
+          return false;
+        }
+      }
+
+      final res = await Future.wait([inbox(), email()]);
+      if (!res[0] && !res[1]) throw Exception('send');
       _msg.clear();
       if (mounted) setState(() => _status = s['contact_ok']);
     } catch (_) {
