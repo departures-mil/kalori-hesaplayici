@@ -11,6 +11,8 @@ mf = os.path.join(android, "app", "src", "main", "AndroidManifest.xml")
 m = open(mf, encoding="utf-8").read()
 perms = """
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -19,7 +21,7 @@ if "REQUEST_INSTALL_PACKAGES" not in m:
     m = m.replace("<application", perms + "    <application", 1)
 m = re.sub(r'android:label="[^"]*"', 'android:label="Kalori Hesaplayıcı"', m, count=1)
 if 'android:usesCleartextTraffic' not in m:
-    m = m.replace("<application", '<application\n        android:usesCleartextTraffic="false"', 1)
+    m = m.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
 # FileProvider for APK install (open_filex ships its own provider; nothing to add)
 open(mf, "w", encoding="utf-8").write(m)
 

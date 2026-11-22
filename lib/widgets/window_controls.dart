@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/theme.dart';
 import '../l10n/strings.dart';
+import '../screens/lan_sync_screen.dart';
 import '../services/sync_service.dart';
 import '../services/update_service.dart';
 import 'common.dart';
@@ -47,6 +48,38 @@ class _WindowControlsState extends State<WindowControls> {
     }
   }
 
+  /// Eşitle: önce normal (online), altında ikinci seçenek Wi-Fi (internetsiz).
+  Future<void> _syncMenu() async {
+    final s = S.of(context);
+    final c = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (b) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.cloud_sync_rounded, color: AppColors.rose),
+            title: Text(s['sync_online']),
+            subtitle: Text(s['sync_online_hint']),
+            onTap: () => Navigator.pop(b, 1),
+          ),
+          ListTile(
+            leading: const Icon(Icons.wifi_rounded, color: AppColors.lavender),
+            title: Text(s['lan_title']),
+            subtitle: Text(s['lan_menu_hint']),
+            onTap: () => Navigator.pop(b, 2),
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (!mounted) return;
+    if (c == 1) await _sync();
+    if (c == 2) {
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const LanSyncScreen()));
+    }
+  }
+
   Future<void> _minimize() async {
     try {
       await _channel.invokeMethod('minimize');
@@ -86,7 +119,7 @@ class _WindowControlsState extends State<WindowControls> {
           icon: Icons.sync_rounded,
           tip: s['sync'],
           busy: _syncing,
-          onTap: _syncing ? null : _sync,
+          onTap: _syncing ? null : _syncMenu,
         ),
         _btn(icon: Icons.remove_rounded, tip: s['minimize'], onTap: _minimize),
         _btn(icon: Icons.close_rounded, tip: s['close'], onTap: _close),
