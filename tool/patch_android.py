@@ -106,3 +106,18 @@ t = os.path.join(root, "test", "widget_test.dart")
 if os.path.exists(t):
     os.remove(t)
 print("done")
+
+# ---------- analiz sonuçlarını CI özetinde görünür yaz ----------
+import subprocess
+try:
+    subprocess.run(["flutter", "pub", "get"], cwd=root, check=False, capture_output=True)
+    r = subprocess.run(["flutter", "analyze", "--no-fatal-infos", "--no-fatal-warnings"],
+                       cwd=root, capture_output=True, text=True)
+    for line in (r.stdout + r.stderr).splitlines():
+        l = line.strip()
+        if l.startswith("error"):
+            print("::error::" + l)
+        elif l.startswith("warning"):
+            print("::warning::" + l)
+except Exception as e:
+    print("analyze skipped:", e)
