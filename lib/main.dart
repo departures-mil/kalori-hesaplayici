@@ -11,6 +11,7 @@ import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/stats_screen.dart';
 import 'services/food_db.dart';
+import 'widgets/announcements.dart';
 import 'widgets/window_controls.dart';
 
 Future<void> main() async {
@@ -164,7 +165,7 @@ class _ShellState extends State<Shell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
-        actions: const [WindowControls()],
+        actions: const [AnnouncementBell(), WindowControls()],
       ),
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
