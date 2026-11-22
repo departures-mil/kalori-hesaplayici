@@ -66,7 +66,12 @@ class _ContactSectionState extends State<ContactSection> {
       }
       final r = await http
           .post(Uri.parse('https://formsubmit.co/ajax/$to'),
-              headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Referer': 'https://departures-mil.github.io/kalori-hesaplayici/',
+                'Origin': 'https://departures-mil.github.io',
+              },
               body: jsonEncode(body))
           .timeout(const Duration(seconds: 30));
       if (r.statusCode >= 300 && !r.body.toLowerCase().contains('activat')) {
