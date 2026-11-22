@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Keys injected at build time via --dart-define (GitHub Actions secrets).
-const kBundledGeminiKey = String.fromEnvironment('GEMINI_API_KEY');
-const kBundledOpenAiKey = String.fromEnvironment('OPENAI_API_KEY');
-const kBundledClaudeKey = String.fromEnvironment('CLAUDE_API_KEY');
+/// v1.0.8: Uygulamaya yöneticinin anahtarı GÖMÜLMEZ — herkes kendi ücretsiz
+/// anahtarını girer (yöneticinin yapay zekâ kotası başkalarınca harcanmasın).
+/// Derlemedeki --dart-define değerleri bilerek kullanılmıyor.
+const kBundledGeminiKey = '';
+const kBundledOpenAiKey = '';
+const kBundledClaudeKey = '';
 
 const kGithubOwner = 'departures-mil';
 const kGithubRepo = 'kalori-hesaplayici';
