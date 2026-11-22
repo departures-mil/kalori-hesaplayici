@@ -8,6 +8,7 @@ import '../services/online_analyzer.dart';
 import '../services/update_service.dart';
 import '../widgets/common.dart';
 import '../widgets/window_controls.dart';
+import 'contact_section.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -206,6 +207,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        _section(s['contact_title']),
+        const ContactSection(),
       ],
     );
   }
