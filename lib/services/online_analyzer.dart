@@ -8,6 +8,8 @@ import 'package:image/image.dart' as img;
 import '../data/models.dart';
 import '../data/settings.dart';
 import 'ai_error.dart';
+import 'food_db.dart';
+import 'nutrition_db.dart';
 import 'usage.dart';
 
 /// Online photo analysis. Tries Gemini first, then OpenAI, then Claude,
@@ -22,26 +24,54 @@ class OnlineAnalyzer {
 
   static const _timeout = Duration(seconds: 45);
 
-  static String _prompt(String lang, [String? hint]) {
-    final langName = switch (lang) {
-      'tr' => 'Turkish',
-      'ar' => 'Arabic',
-      _ => 'English',
+  static String _langName(String lang) => switch (lang) {
+        'tr' => 'Turkish',
+        'ar' => 'Arabic',
+        _ => 'English',
+      };
+
+  /// Size reference sentence for the prompt.
+  static String _refText(String ref) {
+    final cm = Settings.instance.plateCm;
+    return switch (ref) {
+      'card' =>
+        'A standard bank card (8.56 x 5.4 cm) is placed next to the food: use it as the scale.',
+      'fork' =>
+        'A standard dinner fork (about 19 cm long) is placed next to the food: use it as the scale.',
+      'spoon' =>
+        'A standard tablespoon (about 17 cm long) is placed next to the food: use it as the scale.',
+      'plate' when cm > 0 =>
+        'The plate in the photo is exactly $cm cm in diameter: use it as the scale.',
+      _ => cm > 0
+          ? 'If a dinner plate is visible, it is $cm cm in diameter.'
+          : 'No reference object: judge the scale from the plate (a dinner plate is usually 26 cm), bowls, glasses (a Turkish tea glass holds 100 ml, a water glass 200 ml) and cutlery.',
     };
-    _langNameCache = langName;
+  }
+
+  static String _prompt(String lang, PlateInput input) {
+    final l = _langName(lang);
+    final side = input.side != null;
     return '''
-You are a professional nutritionist. Analyze the photo and estimate the calories of everything edible in it.
-It may be a plate of food, fruit, a snack, chocolate, biscuits, a drink or a packaged product.
-Identify each distinct food item, estimate its weight in grams from visual cues (plate size, typical portions),
-and give nutrition values per 100 g. Be realistic; use standard nutrition tables.
-Write the item names in $langName.
+You are a professional dietitian. Estimate the portion size of every edible item in the photo${side ? 's' : ''} as precisely as possible.
+${side ? 'Image 1 shows the meal from above or the front, image 2 shows the SAME meal from the side: use image 2 to judge height / depth, so the volume is right.' : 'Judge height from shadows, perspective and the rim of the plate or bowl.'}
+${_refText(input.ref)}
+For each distinct food or drink:
+1. identify it (dish name, cooking method, visible oil, sauce, dressing, sugar);
+2. estimate the area it covers relative to the reference, and its height;
+3. convert volume to edible grams with a typical density (exclude bones, shells, peels, packaging);
+4. give the most likely weight and a realistic low / high range (not too wide).
+Packaged products: if the package size is readable, use it.
+Write "name" in $l. "name_en" is a short English food name, "usda" the closest USDA SR food description in English (e.g. "Rice, white, long-grain, regular, cooked").
+Nutrition per 100 g is only a fallback for foods missing from our tables: use standard food composition values.
+"cooking": raw, boiled, grilled, baked, stewed or fried. "oil": none, normal or high (visible oil / butter / dressing compared with a usual home recipe).
+"question": when something you cannot see changes the calories by more than about 15 % (fried or baked, sugar in tea, hidden sauce, full-fat or light), ask the user ONE short question in $l; otherwise "".
 Respond ONLY with JSON in exactly this shape:
-{"is_food": true, "items": [{"name": "...", "grams": 150, "kcal_per_100g": 120, "protein_per_100g": 5, "carbs_per_100g": 20, "fat_per_100g": 3, "confidence": 0.8}], "note": "short optional remark in $langName"}
-If there is no food in the photo, respond {"is_food": false, "items": [], "note": "..."}.${_hintBlock(hint)}''';
+{"is_food": true, "items": [{"name": "...", "name_en": "...", "usda": "...", "grams": 180, "grams_min": 150, "grams_max": 210, "cooking": "boiled", "oil": "normal", "kcal_per_100g": 130, "protein_per_100g": 2.7, "carbs_per_100g": 28, "fat_per_100g": 0.3, "confidence": 0.8, "question": ""}], "note": "short optional remark in $l"}
+If there is no food, respond {"is_food": false, "items": [], "note": "..."}.${_hintBlock(input.hint, l)}''';
   }
 
   /// Extra instructions when the user typed what is on the plate.
-  static String _hintBlock(String? hint) {
+  static String _hintBlock(String? hint, String langName) {
     final h = hint?.trim() ?? '';
     if (h.isEmpty) return '';
     return '''
@@ -50,16 +80,14 @@ IMPORTANT: the user told you what is on the plate (it may be written in Turkish,
 <user_list>
 $h
 </user_list>
-Treat this list as ground truth: include every food the user listed, using the user's names (translated to $_langNameCache if needed).
-If the user gave an amount (grams, pieces, spoons, slices, cups, glasses), use it to compute the grams; otherwise estimate the portion from the photo.
-Use the photo for portion sizes, cooking style (fried, oily, sauce, dressing) and any extra visible items the user did not mention.
+Treat this list as ground truth: include every food the user listed, using the user's names (translated to $langName if needed).
+If the user gave an amount (grams, pieces, spoons, slices, cups, glasses), use it to compute the grams and keep the range narrow; otherwise estimate the portion from the photo.
+Use the photo for portion sizes, cooking style and any extra visible items the user did not mention.
 Because the user confirmed the food, always set "is_food": true and use confidence 0.9 or higher for the items the user listed.''';
   }
 
-  static String _langNameCache = 'English';
-
-  /// Plate lists typed by the user, by image path (used on re-analysis).
-  static final Map<String, String> hints = {};
+  /// What the user gave for an image (used on re-analysis).
+  static final Map<String, PlateInput> inputs = {};
 
   /// Downscale + JPEG encode to keep uploads small.
   static Future<List<int>> prepareImage(File file) async {
@@ -75,7 +103,9 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     return img.encodeJpg(resized, quality: 85);
   }
 
-  static AnalysisResult _parse(String text, String model) {
+  static const _cooks = {'raw', 'boiled', 'grilled', 'baked', 'stewed', 'fried'};
+
+  static AnalysisResult _parse(String text, String model, String lang) {
     var t = text.trim();
     final start = t.indexOf('{');
     final end = t.lastIndexOf('}');
@@ -83,20 +113,52 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     final j = jsonDecode(t) as Map<String, dynamic>;
     final isFood = j['is_food'] != false;
     final items = <FoodItem>[];
-    for (final it in (j['items'] as List? ?? [])) {
-      final m = it as Map<String, dynamic>;
+    for (final raw in (j['items'] as List? ?? [])) {
+      final m = raw as Map<String, dynamic>;
       double n(String k, [double d = 0]) => (m[k] as num?)?.toDouble() ?? d;
-      final grams = n('grams', 100);
+      String? str(String k) {
+        final v = (m[k] as String?)?.trim();
+        return v == null || v.isEmpty ? null : v;
+      }
+
+      final grams = n('grams', 100).roundToDouble();
       if (grams <= 0) continue;
-      items.add(FoodItem(
-        name: (m['name'] as String? ?? '?').trim(),
+      var gMin = (m['grams_min'] as num?)?.toDouble();
+      var gMax = (m['grams_max'] as num?)?.toDouble();
+      if (gMin != null && (gMin <= 0 || gMin > grams)) gMin = null;
+      if (gMax != null && gMax < grams) gMax = null;
+      final cook = _cooks.contains(str('cooking')) ? str('cooking') : null;
+      final oil = str('oil');
+      final it = FoodItem(
+        name: str('name') ?? '?',
         grams: grams,
         kcalPer100: n('kcal_per_100g'),
         proteinPer100: n('protein_per_100g'),
         carbsPer100: n('carbs_per_100g'),
         fatPer100: n('fat_per_100g'),
         confidence: n('confidence', 0.7).clamp(0, 1),
-      ));
+        nameEn: str('usda') ?? str('name_en'),
+        gramsMin: gMin,
+        gramsMax: gMax,
+        question: str('question'),
+      );
+      // 1) calories from the tables, 2) AI only as a fallback
+      final enShort = str('name_en');
+      NutritionDb.instance.resolve(it,
+          names: [it.name, enShort], usdaNames: [str('usda'), enShort]);
+      if (it.dataSource == 'db') {
+        // table values have their own cooking style; the photo's style
+        // and visible oil adjust them
+        final f = it.foodId == null ? null : FoodDb.instance.byId(it.foodId!);
+        it.cookBase = f == null ? cook : FoodItem.guessCook('${f.en} ${f.tr}');
+        it.cook = cook ?? it.cookBase;
+        if (oil == 'high' || oil == 'none') it.oil = oil!;
+      } else {
+        // USDA descriptions / AI values already describe this cooking
+        it.cookBase = cook ?? FoodItem.guessCook(it.nameEn ?? it.name);
+        it.cook = it.cookBase;
+      }
+      items.add(it);
     }
     return AnalysisResult(
       items: isFood ? items : [],
@@ -107,16 +169,20 @@ Because the user confirmed the food, always set "is_food": true and use confiden
   }
 
   static Future<AnalysisResult?> analyze(File file, String lang,
-      {String? hint}) async {
-    if (hint != null && hint.trim().isNotEmpty) {
-      hints[file.path] = hint;
+      {PlateInput? input}) async {
+    if (input != null) {
+      inputs[file.path] = input;
     } else {
-      hint = hints[file.path]; // re-analysis keeps the user's list
+      input = inputs[file.path] ?? const PlateInput(); // re-analysis
     }
+    await NutritionDb.instance.load();
     final s = Settings.instance;
-    final image = await prepareImage(file);
-    final b64 = base64Encode(image);
-    final prompt = _prompt(lang, hint);
+    final b64 = <String>[base64Encode(await prepareImage(file))];
+    final side = input.side;
+    if (side != null && await side.exists()) {
+      b64.add(base64Encode(await prepareImage(side)));
+    }
+    final prompt = _prompt(lang, input);
     AiError? best;
     void keep(Object e, String provider) {
       final err = toAiError(e, provider);
@@ -127,7 +193,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     for (final key in s.geminiKeys) {
       for (final model in geminiModels) {
         try {
-          final r = await _gemini(key, model, prompt, b64);
+          final r = await _gemini(key, model, prompt, b64, lang);
           if (r != null) return r;
         } catch (e) {
           final err = toAiError(e, 'Gemini');
@@ -143,7 +209,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     }
     if (s.openAiKey.isNotEmpty) {
       try {
-        final r = await _openAi(s.openAiKey, prompt, b64);
+        final r = await _openAi(s.openAiKey, prompt, b64, lang);
         if (r != null) return r;
       } catch (e) {
         keep(e, 'OpenAI');
@@ -151,7 +217,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     }
     if (s.claudeKey.isNotEmpty) {
       try {
-        final r = await _claude(s.claudeKey, prompt, b64);
+        final r = await _claude(s.claudeKey, prompt, b64, lang);
         if (r != null) return r;
       } catch (e) {
         keep(e, 'Claude');
@@ -215,15 +281,15 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     return out;
   }
 
-  static Future<AnalysisResult?> _gemini(
-      String key, String model, String prompt, String b64) async {
+  static Future<AnalysisResult?> _gemini(String key, String model,
+      String prompt, List<String> b64, String lang) async {
     final text = await _geminiRaw(key, model, prompt, b64);
     if (text == null) return null;
-    return _parse(text, model);
+    return _parse(text, model, lang);
   }
 
   static Future<String?> _geminiRaw(
-      String key, String model, String prompt, String? b64) async {
+      String key, String model, String prompt, List<String>? b64) async {
     final uri = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$key');
     final body = {
@@ -231,15 +297,15 @@ Because the user confirmed the food, always set "is_food": true and use confiden
         {
           'parts': [
             {'text': prompt},
-            if (b64 != null)
+            for (final im in b64 ?? const <String>[])
               {
-                'inline_data': {'mime_type': 'image/jpeg', 'data': b64}
+                'inline_data': {'mime_type': 'image/jpeg', 'data': im}
               }
           ]
         }
       ],
       'generationConfig': {
-        'temperature': 0.2,
+        'temperature': 0, // same photo -> same answer
         'response_mime_type': 'application/json',
         // Gemini 3.x "thinks" for ~30 s by default; low is ~3x faster.
         if (model.startsWith('gemini-3'))
@@ -269,28 +335,28 @@ Because the user confirmed the food, always set "is_food": true and use confiden
   }
 
   static Future<AnalysisResult?> _openAi(
-      String key, String prompt, String b64) async {
+      String key, String prompt, List<String> b64, String lang) async {
     final text = await _openAiRaw(key, prompt, b64);
     if (text == null) return null;
-    return _parse(text, 'gpt-4o-mini');
+    return _parse(text, 'gpt-4o-mini', lang);
   }
 
   static Future<String?> _openAiRaw(
-      String key, String prompt, String? b64) async {
+      String key, String prompt, List<String>? b64) async {
     final uri = Uri.parse('https://api.openai.com/v1/chat/completions');
     final body = {
       'model': 'gpt-4o-mini',
-      'temperature': 0.2,
+      'temperature': 0,
       'response_format': {'type': 'json_object'},
       'messages': [
         {
           'role': 'user',
           'content': [
             {'type': 'text', 'text': prompt},
-            if (b64 != null)
+            for (final im in b64 ?? const <String>[])
               {
                 'type': 'image_url',
-                'image_url': {'url': 'data:image/jpeg;base64,$b64'}
+                'image_url': {'url': 'data:image/jpeg;base64,$im'}
               }
           ]
         }
@@ -313,29 +379,30 @@ Because the user confirmed the food, always set "is_food": true and use confiden
   }
 
   static Future<AnalysisResult?> _claude(
-      String key, String prompt, String b64) async {
+      String key, String prompt, List<String> b64, String lang) async {
     final text = await _claudeRaw(key, prompt, b64);
     if (text == null) return null;
-    return _parse(text, 'claude');
+    return _parse(text, 'claude', lang);
   }
 
   static Future<String?> _claudeRaw(
-      String key, String prompt, String? b64) async {
+      String key, String prompt, List<String>? b64) async {
     final uri = Uri.parse('https://api.anthropic.com/v1/messages');
     final body = {
       'model': 'claude-sonnet-4-5',
-      'max_tokens': 1024,
+      'max_tokens': 2048,
+      'temperature': 0,
       'messages': [
         {
           'role': 'user',
           'content': [
-            if (b64 != null)
+            for (final im in b64 ?? const <String>[])
               {
                 'type': 'image',
                 'source': {
                   'type': 'base64',
                   'media_type': 'image/jpeg',
-                  'data': b64
+                  'data': im
                 }
               },
             {'type': 'text', 'text': prompt}
