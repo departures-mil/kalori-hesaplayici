@@ -114,32 +114,32 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(s['lan_title'])),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         children: [
           Text(s['lan_intro'], style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SoftCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(s['lan_host_title'],
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 6),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                SizedBox(height: 6),
                 Text(s['lan_host_hint'], style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 if (hosting && _pin != null) ...[
                   Text('${s['lan_address']}: ${_ips.isEmpty ? '—' : _ips.join(', ')}',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 6),
                   Text('${s['lan_code']}: $_pin',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 28, fontWeight: FontWeight.w800,
                           letterSpacing: 4, color: AppColors.rose)),
                   if (_hostLog.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(_hostLog),
                   ],
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                 ],
                 FilledButton.icon(
                   onPressed: _toggleHost,
@@ -149,21 +149,21 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SoftCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(s['lan_join_title'],
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 10),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _scan != null ? null : _discover,
-                  icon: const Icon(Icons.radar_rounded),
+                  icon: Icon(Icons.radar_rounded),
                   label: Text(s['lan_find']),
                 ),
                 if (_scan != null) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   LinearProgressIndicator(value: _scan, color: AppColors.rose),
                 ],
                 if (_found.length > 1)
@@ -171,7 +171,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
                     for (final f in _found)
                       ActionChip(label: Text(f), onPressed: () => setState(() => _host.text = f)),
                   ]),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 TextField(
                   controller: _host,
                   keyboardType: TextInputType.number,
@@ -186,14 +186,14 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
                 FilledButton.icon(
                   onPressed: _busy ? null : _sync,
                   icon: _busy
-                      ? const SizedBox(width: 18, height: 18,
+                      ? SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.sync_rounded),
+                      : Icon(Icons.sync_rounded),
                   label: Text(s['lan_sync_now']),
                 ),
                 if (_result.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(_result, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 10),
+                  Text(_result, style: TextStyle(fontWeight: FontWeight.w600)),
                 ],
               ],
             ),

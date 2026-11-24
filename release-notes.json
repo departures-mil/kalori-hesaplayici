@@ -1,0 +1,5 @@
+{
+  "tr": "Yeni Falcon görünümü (8 renk şeması, eski görünüm \"Klasik\"), koyu/açık/otomatik tema, yazı boyutu. Güncelleme yalnızca değişen kısımları indirir (SHA-256 doğrulamalı). Uygulamada hazır yapay zekâ anahtarı yok; herkes kendi anahtarını girer. Otomatik hata raporu, sağlayıcıya göre kullanım sayacı, Wi-Fi eşitlemesinde çakışma yedeği ve arşiv.",
+  "en": "New Falcon look (8 colour schemes, old look as \"Classic\"), dark/light/auto theme, text size. Updates download only the changed parts (SHA-256 verified). No built-in AI key; everyone enters their own. Automatic error reports, AI usage per provider, conflict backups and archive in Wi-Fi sync.",
+  "ar": "مظهر فالكون الجديد (ثمانية أنظمة ألوان، والمظهر القديم «كلاسيكي»)، سمة داكنة/فاتحة/تلقائية وحجم الخط. يُنزّل التحديث الأجزاء المتغيرة فقط مع التحقق ببصمة SHA-256. لا يوجد مفتاح ذكاء اصطناعي جاهز؛ يُدخل كل مستخدم مفتاحه. تقارير أخطاء تلقائية، وعدّاد استخدام لكل مزوّد، ونسخ تعارض احتياطية وأرشيف في مزامنة Wi-Fi."
+}

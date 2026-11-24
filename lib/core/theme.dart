@@ -1,109 +1,164 @@
 import 'package:flutter/material.dart';
 
-class AppColors {
-  static const rose = Color(0xFFE75480);
-  static const roseSoft = Color(0xFFF8A5C2);
-  static const lavender = Color(0xFF9B7EDE);
-  static const lavenderSoft = Color(0xFFD9CCF5);
-  static const cream = Color(0xFFFFF7FA);
-  static const peach = Color(0xFFFFC2A8);
-  static const mint = Color(0xFF8FD9C1);
-  static const ink = Color(0xFF3B2A3F);
-  static const inkSoft = Color(0xFF7A6A80);
+import 'look.dart';
 
-  static const protein = Color(0xFF9B7EDE);
-  static const carbs = Color(0xFFFFB457);
-  static const fat = Color(0xFFE75480);
+/// Uygulama renkleri. v1.1.0'dan beri seçili Falcon şemasından gelir
+/// (Ayarlar → Görünüm); "klasik" şeması açık modda eski renklerin birebir aynısıdır.
+class AppColors {
+  static FcPalette get _p => FcLook.instance.palette;
+
+  static Color get rose => _p.rose;
+  static Color get roseSoft => _p.roseSoft;
+  static Color get lavender => _p.lavender;
+  static Color get lavenderSoft => _p.lavenderSoft;
+  static Color get cream => _p.bg;
+  static Color get peach => _p.peach;
+  static Color get mint => _p.mint;
+  static Color get ink => _p.text;
+  static Color get inkSoft => _p.muted;
+  static Color get card => _p.panel;
+
+  static Color get protein => _p.lavender;
+  static Color get carbs => _p.carbs;
+  static Color get fat => _p.rose;
 }
 
-ThemeData buildTheme() {
+/// Arapçada Noto Sans Arabic, diğer dillerde Inter (ikisi de uygulamaya gömülü).
+String fontFor(String lang) => lang == 'ar' ? 'NotoSansArabic' : 'Inter';
+List<String> fontFallbackFor(String lang) =>
+    lang == 'ar' ? const ['Inter'] : const ['NotoSansArabic'];
+
+ThemeData buildTheme({String lang = 'tr'}) {
+  final p = FcLook.instance.palette;
+  final brightness = p.dark ? Brightness.dark : Brightness.light;
   final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.rose,
-    brightness: Brightness.light,
-    primary: AppColors.rose,
-    secondary: AppColors.lavender,
-    surface: AppColors.cream,
+    seedColor: p.accent,
+    brightness: brightness,
+    primary: p.accent,
+    onPrimary: p.onAccent,
+    secondary: p.accent2,
+    surface: p.panel,
+    onSurface: p.text,
+    error: p.danger,
   );
+  final ink = p.text;
   return ThemeData(
     useMaterial3: true,
+    brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.cream,
-    fontFamily: 'Roboto',
-    textTheme: const TextTheme(
-      headlineMedium: TextStyle(
-          fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 28),
-      titleLarge: TextStyle(
-          fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 20),
-      titleMedium: TextStyle(
-          fontWeight: FontWeight.w600, color: AppColors.ink, fontSize: 16),
-      bodyMedium: TextStyle(color: AppColors.ink, fontSize: 14),
-      bodySmall: TextStyle(color: AppColors.inkSoft, fontSize: 12),
+    scaffoldBackgroundColor: p.bg,
+    fontFamily: fontFor(lang),
+    fontFamilyFallback: fontFallbackFor(lang),
+    textTheme: TextTheme(
+      headlineMedium:
+          TextStyle(fontWeight: FontWeight.w700, color: ink, fontSize: 28),
+      titleLarge: TextStyle(fontWeight: FontWeight.w700, color: ink, fontSize: 20),
+      titleMedium:
+          TextStyle(fontWeight: FontWeight.w600, color: ink, fontSize: 16),
+      bodyLarge: TextStyle(color: ink, fontSize: 16),
+      bodyMedium: TextStyle(color: ink, fontSize: 14),
+      bodySmall: TextStyle(color: p.muted, fontSize: 12),
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+    iconTheme: IconThemeData(color: ink),
+    appBarTheme: AppBarTheme(
+      backgroundColor: p['topbar-bg'],
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
-      foregroundColor: AppColors.ink,
+      foregroundColor: ink,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-          fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 20),
+      titleTextStyle:
+          TextStyle(fontWeight: FontWeight.w700, color: ink, fontSize: 18, fontFamily: fontFor(lang)),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: p.panel,
       elevation: 0,
-      shadowColor: AppColors.rose.withValues(alpha: 0.15),
+      shadowColor: p.accent.withValues(alpha: 0.15),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       margin: EdgeInsets.zero,
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: p['modal-bg'],
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: p['modal-border'])),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p['modal-bg'],
+      surfaceTintColor: Colors.transparent,
+    ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.rose,
-        foregroundColor: Colors.white,
+        backgroundColor: p.accent,
+        foregroundColor: p.onAccent,
         minimumSize: const Size.fromHeight(52),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.rose,
+        foregroundColor: p.accent,
         minimumSize: const Size.fromHeight(52),
-        side: const BorderSide(color: AppColors.roseSoft, width: 1.5),
+        side: BorderSide(color: p['accent-line'], width: 1.5),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: p.accent),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: p.panel,
+      selectedColor: p['active-1'],
+      side: BorderSide(color: p.border),
+      labelStyle: TextStyle(color: ink),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: p.panel,
+      labelStyle: TextStyle(color: p.muted),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.lavenderSoft)),
+          borderSide: BorderSide(color: p.lavenderSoft)),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.lavenderSoft)),
+          borderSide: BorderSide(color: p.lavenderSoft)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.rose, width: 1.5)),
+          borderSide: BorderSide(color: p['focus'], width: 1.5)),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
-      indicatorColor: AppColors.roseSoft.withValues(alpha: 0.5),
+      backgroundColor: p.panel,
+      surfaceTintColor: Colors.transparent,
+      indicatorColor: p['active-1'],
       labelTextStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ink)),
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: AppColors.ink,
+      backgroundColor: p['toast-bg'],
+      contentTextStyle: TextStyle(color: p['toast-text']),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: p['toast-line'])),
     ),
-    dividerColor: AppColors.lavenderSoft,
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: p.accent,
+      linearTrackColor: p['bar-track'],
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? p.onAccent : null),
+      trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? p.accent : null),
+    ),
+    dividerColor: p.border,
   );
 }
 
-const kGradient = LinearGradient(
-  colors: [AppColors.rose, AppColors.lavender],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
+LinearGradient get kGradient => LinearGradient(
+      colors: FcLook.instance.palette.gradient,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );

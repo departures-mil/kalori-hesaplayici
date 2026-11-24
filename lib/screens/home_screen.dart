@@ -121,7 +121,7 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _manual() async {
     final added = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const ManualAddScreen()),
+      MaterialPageRoute(builder: (_) => ManualAddScreen()),
     );
     if (added == true) {
       await refresh();
@@ -143,7 +143,7 @@ class HomeScreenState extends State<HomeScreen> {
     return RefreshIndicator(
       onRefresh: refresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           GradientCard(
             child: Row(
@@ -156,51 +156,51 @@ class HomeScreenState extends State<HomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('${_today.round()}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white,
                               fontSize: 30,
                               fontWeight: FontWeight.w800)),
                       Text(s['kcal'],
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white70, fontSize: 12)),
                     ],
                   ),
                 ),
-                const SizedBox(width: 18),
+                SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(s['today'],
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white70,
                               fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         remaining >= 0
                             ? '${s['remaining']}: ${remaining.round()}'
                             : '${s['over_goal']}: ${(-remaining).round()}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w700),
                       ),
                       Text('${s['daily_goal']}: ${goal.round()} ${s['kcal']}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: Colors.white70, fontSize: 13)),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Row(
                         children: [
-                          const Icon(Icons.water_drop_rounded,
+                          Icon(Icons.water_drop_rounded,
                               color: Colors.white, size: 20),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text('$_water ${s['glasses']}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600)),
-                          const Spacer(),
+                          Spacer(),
                           _waterBtn(Icons.remove, () => _addWater(-1)),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           _waterBtn(Icons.add, () => _addWater(1)),
                         ],
                       ),
@@ -210,14 +210,14 @@ class HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           Text(s['analyze_photo'],
               style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
             childAspectRatio: 1.35,
@@ -244,18 +244,18 @@ class HomeScreenState extends State<HomeScreen> {
                   onTap: _manual),
             ],
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           if (_recent.isNotEmpty) ...[
             Text(s['today'], style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             ..._recent.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: 10),
                   child: SoftCard(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(12),
                     child: Row(
                       children: [
                         _thumb(e.imagePath),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +263,7 @@ class HomeScreenState extends State<HomeScreen> {
                               Text(e.title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontWeight: FontWeight.w600)),
                               Text(s[e.meal.name],
                                   style:
@@ -272,7 +272,7 @@ class HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         Text('${e.kcal.round()} ${s['kcal']}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.rose)),
                       ],
@@ -280,21 +280,21 @@ class HomeScreenState extends State<HomeScreen> {
                   ),
                 )),
           ],
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           SoftCard(
             color: AppColors.lavenderSoft.withValues(alpha: 0.4),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.lightbulb_rounded, color: AppColors.lavender),
-                const SizedBox(width: 10),
+                Icon(Icons.lightbulb_rounded, color: AppColors.lavender),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(s['tips_title'],
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
+                          style: TextStyle(fontWeight: FontWeight.w700)),
+                      SizedBox(height: 4),
                       Text(s['tips_text'],
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
@@ -332,7 +332,7 @@ class HomeScreenState extends State<HomeScreen> {
             ? Image.file(f, fit: BoxFit.cover)
             : Container(
                 color: AppColors.roseSoft.withValues(alpha: 0.3),
-                child: const Icon(Icons.restaurant_rounded,
+                child: Icon(Icons.restaurant_rounded,
                     color: AppColors.rose)),
       ),
     );
@@ -350,7 +350,7 @@ class _ProgressDialog extends StatelessWidget {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -358,16 +358,16 @@ class _ProgressDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Image.file(file, height: 180, fit: BoxFit.cover),
             ),
-            const SizedBox(height: 18),
-            const CircularProgressIndicator(color: AppColors.rose),
-            const SizedBox(height: 14),
+            SizedBox(height: 18),
+            CircularProgressIndicator(color: AppColors.rose),
+            SizedBox(height: 14),
             ValueListenableBuilder<AnalysisStage>(
               valueListenable: stage,
               builder: (_, st, __) => Text(
                 st == AnalysisStage.online
                     ? s['analyzing_online']
                     : s['analyzing_offline'],
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],

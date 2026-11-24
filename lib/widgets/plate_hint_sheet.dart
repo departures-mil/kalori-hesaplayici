@@ -19,7 +19,7 @@ Future<PlateInput?> showPlateHintSheet(BuildContext context, File file) {
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    shape: const RoundedRectangleBorder(
+    shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     builder: (_) => _PlateHintSheet(file: file),
   );
@@ -133,11 +133,11 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
       builder: (c) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
-              leading: const Icon(Icons.photo_camera_rounded),
+              leading: Icon(Icons.photo_camera_rounded),
               title: Text(s('side_camera')),
               onTap: () => Navigator.pop(c, ImageSource.camera)),
           ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
+              leading: Icon(Icons.photo_library_rounded),
               title: Text(s('side_gallery')),
               onTap: () => Navigator.pop(c, ImageSource.gallery)),
         ]),
@@ -199,8 +199,8 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(s('ref_title'),
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 4, children: [
           chip('none', Icons.block_rounded),
           GestureDetector(
@@ -212,7 +212,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
           chip('fork', Icons.restaurant_rounded),
           chip('spoon', Icons.soup_kitchen_rounded),
         ]),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(s('ref_tip'),
             style: TextStyle(
                 fontSize: 12,
@@ -220,7 +220,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                     .colorScheme
                     .onSurface
                     .withValues(alpha: 0.55))),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Row(children: [
           if (_side != null) ...[
             ClipRRect(
@@ -229,19 +229,19 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
             ),
             IconButton(
                 onPressed: () => setState(() => _side = null),
-                icon: const Icon(Icons.close_rounded)),
+                icon: Icon(Icons.close_rounded)),
           ] else
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => _pickSide(s),
-                icon: const Icon(Icons.add_a_photo_rounded),
+                icon: Icon(Icons.add_a_photo_rounded),
                 label: Text(s('side_add')),
               ),
             ),
           if (_side != null)
             Expanded(
                 child: Text(s('side_tip'),
-                    style: const TextStyle(fontSize: 12))),
+                    style: TextStyle(fontSize: 12))),
         ]),
       ],
     );
@@ -264,7 +264,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
   Future<void> _fromList() async {
     final item = await Navigator.push<FoodItem>(
       context,
-      MaterialPageRoute(builder: (_) => const ManualAddScreen(pickOnly: true)),
+      MaterialPageRoute(builder: (_) => ManualAddScreen(pickOnly: true)),
     );
     if (item == null || !mounted) return;
     setState(() => _chips.add('${item.name} ${item.grams.round()} g'));
@@ -291,7 +291,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                     borderRadius: BorderRadius.circular(4)),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Row(
               children: [
                 ClipRRect(
@@ -299,15 +299,15 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                   child: Image.file(widget.file,
                       width: 72, height: 72, fit: BoxFit.cover),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(s('plate_hint_title'),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(s('plate_hint_sub'),
                           style: TextStyle(
                               fontSize: 13,
@@ -320,7 +320,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (_chips.isNotEmpty) ...[
               Wrap(
                 spacing: 8,
@@ -333,7 +333,7 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
             ],
             TextField(
               controller: _ctrl,
@@ -343,18 +343,18 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: s('plate_hint_example'),
-                prefixIcon: const Icon(Icons.restaurant_menu_rounded),
+                prefixIcon: Icon(Icons.restaurant_menu_rounded),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16)),
               ),
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: TextButton.icon(
                 onPressed: _fromList,
-                icon: const Icon(Icons.playlist_add_rounded),
+                icon: Icon(Icons.playlist_add_rounded),
                 label: Text(s('plate_hint_from_list')),
               ),
             ),
@@ -365,28 +365,28 @@ class _PlateHintSheetState extends State<_PlateHintSheet> {
                         .colorScheme
                         .onSurface
                         .withValues(alpha: 0.55))),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             _refChips(s),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, _result('')),
                     style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14)),
+                        padding: EdgeInsets.symmetric(vertical: 14)),
                     child: Text(s('plate_hint_skip')),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   flex: 2,
                   child: FilledButton.icon(
                     onPressed: () => Navigator.pop(context, _result(_text)),
                     style: FilledButton.styleFrom(
                         backgroundColor: AppColors.rose,
-                        padding: const EdgeInsets.symmetric(vertical: 14)),
-                    icon: const Icon(Icons.auto_awesome_rounded),
+                        padding: EdgeInsets.symmetric(vertical: 14)),
+                    icon: Icon(Icons.auto_awesome_rounded),
                     label: Text(s('plate_hint_analyze')),
                   ),
                 ),

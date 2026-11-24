@@ -111,6 +111,11 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// "Neler yeni" en son hangi sürüm için gösterildi.
+  String? get lastSeenVersion => _p.getString('fc.lastSeenVersion');
+  set lastSeenVersion(String? v) =>
+      v == null ? _p.remove('fc.lastSeenVersion') : _p.setString('fc.lastSeenVersion', v);
+
   bool get welcomed => _p.getBool('welcomed') ?? false;
   set welcomed(bool v) => _p.setBool('welcomed', v);
 

@@ -28,6 +28,9 @@ class _UsageCardState extends State<UsageCard> {
           final v = snap.data ?? const {};
           final left = Usage.untilReset();
           final dun = v['dun'];
+          final raw = v['ai'] is Map ? v['ai'] as Map : const {};
+          int n(String k) => (raw[k] as num?)?.toInt() ?? 0;
+          final ai = {'Gemini': n('gemini'), 'OpenAI': n('openai'), 'Claude': n('claude')};
           Widget row(String a, String b) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(children: [
@@ -54,6 +57,15 @@ class _UsageCardState extends State<UsageCard> {
                 ),
               row(s['usage_requests'], _num(v['istek'])),
               row(s['usage_tokens'], _num(v['token'])),
+              const SizedBox(height: 6),
+              Text(s['usage_by_provider'], style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (ai.values.every((n) => n == 0))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text(s['usage_no_ai'], style: small),
+                )
+              else
+                for (final e in ai.entries) row(e.key, s.f('usage_calls', {'n': e.value})),
               if (dun is Map)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

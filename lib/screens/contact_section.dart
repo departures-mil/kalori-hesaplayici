@@ -1,14 +1,11 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../l10n/strings.dart';
-import '../services/update_service.dart';
+import '../services/fc_contact.dart';
 import '../widgets/common.dart';
 
-/// "Admin ile iletişime geç": öneri / hata bildirimi doğrudan yöneticiye (FormSubmit) gider.
+/// "Admin ile iletişim" (Ayarlar'ın EN SONU): ortak çekirdek gelen kutusu (FcContact, SPEC alanları).
+/// Gönderilemezse mesaj sıraya alınır ve bağlantı gelince kendiliğinden gönderilir.
 class ContactSection extends StatefulWidget {
   const ContactSection({super.key});
 
@@ -17,16 +14,27 @@ class ContactSection extends StatefulWidget {
 }
 
 class _ContactSectionState extends State<ContactSection> {
-  final _name = TextEditingController();
-  final _mail = TextEditingController();
+  final _reach = TextEditingController();
   final _msg = TextEditingController();
+  String _type = 'oneri';
   String _status = '';
   bool _busy = false;
+  int _waiting = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _count();
+  }
+
+  Future<void> _count() async {
+    final n = (await FcContact.queue()).length;
+    if (mounted) setState(() => _waiting = n);
+  }
 
   @override
   void dispose() {
-    _name.dispose();
-    _mail.dispose();
+    _reach.dispose();
     _msg.dispose();
     super.dispose();
   }
@@ -34,92 +42,20 @@ class _ContactSectionState extends State<ContactSection> {
   Future<void> _send() async {
     final s = S.of(context);
     final msg = _msg.text.trim();
-    final mail = _mail.text.trim();
     if (msg.isEmpty) return setState(() => _status = s['contact_empty']);
-    if (mail.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(mail)) {
-      return setState(() => _status = s['contact_bad']);
-    }
     setState(() {
       _busy = true;
       _status = s['contact_sending'];
     });
     try {
-      final to = String.fromCharCodes(
-          utf8.decode(base64.decode('bW9jLmxpYW1ub3RvcnBANDMyMWxkaW50bWxkYmE=')).codeUnits.reversed);
-      String ver = '';
-      try {
-        ver = await UpdateService.currentVersion();
-      } catch (_) {}
-      final body = <String, String>{
-        '_subject': 'Kalori Hesaplayıcı: yeni mesaj',
-        '_template': 'table',
-        '_captcha': 'false',
-        'Ad': _name.text.trim().isEmpty ? '-' : _name.text.trim(),
-        'Mesaj': msg,
-        'Surum': ver,
-        'Cihaz': Platform.operatingSystem,
-        'Dil': s.code,
-      };
-      if (mail.isNotEmpty) {
-        body['email'] = mail;
-        body['_replyto'] = mail;
-      }
-      // İki bağımsız kanal; biri kabul ederse mesaj ulaşmış sayılır:
-      //  1) yöneticinin mesaj kutusu (Firestore "mesajlar", yalnızca ekleme; etkinleştirme gerekmez)
-      //  2) e-posta kopyası (FormSubmit; "etkinleştirme gerekli" yanıtı ulaştı sayılmaz)
-      Map<String, dynamic> f(String v) => {'stringValue': v.length > 4000 ? v.substring(0, 4000) : v};
-      final fields = <String, dynamic>{
-        'mesaj': f(msg),
-        'konu': f('Kalori Hesaplayıcı · Mesaj'),
-        'dil': f(s.code),
-        'surum': f(ver),
-        'platform': f('Kalori Hesaplayıcı · ${Platform.operatingSystem}'),
-        'zaman': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
-      };
-      if (_name.text.trim().isNotEmpty) fields['ad'] = f(_name.text.trim());
-      if (mail.isNotEmpty) fields['iletisim'] = f(mail);
-      Future<bool> inbox() async {
-        try {
-          final r = await http
-              .post(
-                  Uri.parse('https://firestore.googleapis.com/v1/projects/comm-calc-103111111/databases/(default)/documents/'
-                      'mesajlar?key=AIzaSyB12RFS6ENPpmnnPsETfjedNH-3hmNWQvA'),
-                  headers: {'Content-Type': 'application/json'},
-                  body: jsonEncode({'fields': fields}))
-              .timeout(const Duration(seconds: 30));
-          return r.statusCode >= 200 && r.statusCode < 300;
-        } catch (_) {
-          return false;
-        }
-      }
-
-      Future<bool> email() async {
-        try {
-          final r = await http
-              .post(Uri.parse('https://formsubmit.co/ajax/$to'),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Referer': 'https://formsubmit.co/',
-                    'Origin': 'https://formsubmit.co',
-                  },
-                  body: jsonEncode(body))
-              .timeout(const Duration(seconds: 30));
-          final j = jsonDecode(r.body);
-          return j is Map && '${j['success']}' == 'true';
-        } catch (_) {
-          return false;
-        }
-      }
-
-      final res = await Future.wait([inbox(), email()]);
-      if (!res[0] && !res[1]) throw Exception('send');
+      final r = await FcContact.send(tur: _type, mesaj: msg, iletisim: _reach.text.trim());
       _msg.clear();
-      if (mounted) setState(() => _status = s['contact_ok']);
+      if (mounted) setState(() => _status = r == 'sent' ? s['contact_ok'] : s['contact_queued']);
     } catch (_) {
       if (mounted) setState(() => _status = s['contact_fail']);
     } finally {
       if (mounted) setState(() => _busy = false);
+      _count();
     }
   }
 
@@ -132,14 +68,22 @@ class _ContactSectionState extends State<ContactSection> {
         children: [
           Text(s['contact_desc'], style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 10),
-          TextField(controller: _name, maxLength: 80, decoration: InputDecoration(labelText: s['contact_name'], counterText: '')),
-          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: 'oneri', label: Text(s['contact_suggest']), icon: const Icon(Icons.lightbulb_outline_rounded, size: 18)),
+              ButtonSegment(value: 'hata', label: Text(s['contact_bug']), icon: const Icon(Icons.bug_report_outlined, size: 18)),
+            ],
+            selected: {_type},
+            onSelectionChanged: (v) => setState(() => _type = v.first),
+          ),
+          const SizedBox(height: 10),
           TextField(
-              controller: _mail,
-              maxLength: 120,
+              controller: _reach,
+              maxLength: 160,
               keyboardType: TextInputType.emailAddress,
               textDirection: TextDirection.ltr,
-              decoration: InputDecoration(labelText: s['contact_mail'], counterText: '')),
+              decoration: InputDecoration(labelText: s['contact_reach'], counterText: '')),
           const SizedBox(height: 8),
           TextField(
               controller: _msg,
@@ -151,12 +95,19 @@ class _ContactSectionState extends State<ContactSection> {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: FilledButton.icon(
+              style: FilledButton.styleFrom(minimumSize: const Size(120, 46)),
               onPressed: _busy ? null : _send,
               icon: const Icon(Icons.mail_outline_rounded, size: 18),
               label: Text(s['contact_send']),
             ),
           ),
           if (_status.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_status)),
+          if (_waiting > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(s.f('contact_waiting', {'n': _waiting}),
+                  style: Theme.of(context).textTheme.bodySmall),
+            ),
         ],
       ),
     );

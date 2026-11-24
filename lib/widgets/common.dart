@@ -20,7 +20,7 @@ class GradientCard extends StatelessWidget {
             BoxShadow(
                 color: AppColors.rose.withValues(alpha: 0.25),
                 blurRadius: 20,
-                offset: const Offset(0, 8))
+                offset: Offset(0, 8))
           ],
         ),
         child: child,
@@ -41,13 +41,13 @@ class SoftCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: color ?? Colors.white,
+          color: color ?? AppColors.card,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
                 color: AppColors.lavender.withValues(alpha: 0.10),
                 blurRadius: 16,
-                offset: const Offset(0, 6))
+                offset: Offset(0, 6))
           ],
         ),
         child: child,
@@ -128,7 +128,7 @@ class MacroChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
@@ -139,7 +139,7 @@ class MacroChip extends StatelessWidget {
             Text('${grams.round()} g',
                 style: TextStyle(fontWeight: FontWeight.w700, color: color)),
             Text(label,
-                style: const TextStyle(fontSize: 11, color: AppColors.inkSoft)),
+                style: TextStyle(fontSize: 11, color: AppColors.inkSoft)),
           ],
         ),
       );
@@ -162,7 +162,7 @@ class ActionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: SoftCard(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+          padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -174,10 +174,10 @@ class ActionTile extends StatelessWidget {
                     shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 26),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13)),
             ],
           ),

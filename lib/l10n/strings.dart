@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'strings_fc.dart';
 import 'strings_v11.dart';
 
 /// Lightweight localization: tr / en / ar.
@@ -17,8 +18,10 @@ class S {
   String operator [](String key) =>
       _m[code]![key] ??
       kStringsV11[code]?[key] ??
+      kStringsFc[code]?[key] ??
       _m['en']![key] ??
       kStringsV11['en']?[key] ??
+      kStringsFc['en']?[key] ??
       key;
 
   String f(String key, Map<String, Object> args) {
