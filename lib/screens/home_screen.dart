@@ -55,8 +55,8 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _analyze(ImageSource src) async {
     final file = await _pick(src);
     if (file == null || !mounted) return;
-    final hint = await showPlateHintSheet(context, file);
-    if (hint == null || !mounted) return; // cancelled
+    final input = await showPlateHintSheet(context, file);
+    if (input == null || !mounted) return; // cancelled
     final s = S.of(context);
     final lang = Settings.instance.lang;
     final stage = ValueNotifier<AnalysisStage>(AnalysisStage.online);
@@ -68,7 +68,7 @@ class HomeScreenState extends State<HomeScreen> {
     AnalysisResult? result;
     try {
       result = await Analyzer.analyze(file, lang,
-          hint: hint, onStage: (st) => stage.value = st);
+          input: input, onStage: (st) => stage.value = st);
     } catch (_) {}
     if (!mounted) return;
     Navigator.pop(context); // progress
