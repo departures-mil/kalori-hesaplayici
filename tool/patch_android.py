@@ -103,6 +103,21 @@ class MainActivity : FlutterActivity() {{
                     else -> result.notImplemented()
                 }}
             }}
+        // Güncelleme (ortak çekirdek): kurulu APK'nın yolu → FCD1 yaması bu dosyaya uygulanır
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kalori/app")
+            .setMethodCallHandler {{ call, result ->
+                when (call.method) {{
+                    "apkInfo" -> {{
+                        val ai = applicationInfo
+                        val splits = ai.splitSourceDirs
+                        result.success(mapOf(
+                            "path" to ai.sourceDir,
+                            "split" to (splits != null && splits.isNotEmpty())
+                        ))
+                    }}
+                    else -> result.notImplemented()
+                }}
+            }}
     }}
 }}
 ''')
@@ -117,17 +132,3 @@ print("done")
 # ---------- v1.0.11: nutrition data (foods / USDA / offline model labels) ----------
 import subprocess
 subprocess.call([sys.executable, os.path.join(root, "tool", "gen_data.py")])
-
-# ---------- analiz sonuçlarını CI özetinde görünür yaz ----------
-try:
-    subprocess.run(["flutter", "pub", "get"], cwd=root, check=False, capture_output=True)
-    r = subprocess.run(["flutter", "analyze", "--no-fatal-infos", "--no-fatal-warnings"],
-                       cwd=root, capture_output=True, text=True)
-    for line in (r.stdout + r.stderr).splitlines():
-        l = line.strip()
-        if l.startswith("error"):
-            print("::error::" + l)
-        elif l.startswith("warning"):
-            print("::warning::" + l)
-except Exception as e:
-    print("analyze skipped:", e)

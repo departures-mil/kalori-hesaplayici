@@ -7,7 +7,6 @@ build/
 *.iml
 android/
 ios/
-test/
 .metadata
 pubspec.lock
 android-signing/

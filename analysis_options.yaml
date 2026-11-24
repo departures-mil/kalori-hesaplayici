@@ -1,4 +1,12 @@
 include: package:flutter_lints/flutter.yaml
+analyzer:
+  exclude:
+    - build/**
+    - android/**
 linter:
   rules:
     use_build_context_synchronously: false
+    # Renkler v1.1.0'dan beri seçili şemadan (çalışma anında) gelir; const zorunlu değil.
+    prefer_const_constructors: false
+    prefer_const_literals_to_create_immutables: false
+    prefer_const_constructors_in_immutables: false

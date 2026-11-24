@@ -1,0 +1,182 @@
+# Kalori Hesaplayıcı — test (flutter analyze + flutter test) → imzalı APK → GitHub Release
+# (ortak çekirdek reusable-release: latest.json, kanal "android", son 5 sürümden FCD1 yamaları).
+#
+# Yayın: pubspec.yaml sürümünü yükselt (lib/core/app_info.dart + lib/data/news.dart aynı sürüm),
+# main'e birleştir, sonra Actions → release → "Run workflow" (main) ya da:
+#   gh api -X POST repos/departures-mil/kalori-hesaplayici/actions/workflows/release.yml/dispatches -f ref=main
+# main'e push ve ortak-cekirdek-* dalları: yalnız test + derleme (release yok).
+#
+# İmza: yalnız GitHub secret'ları (depoya anahtar/şifre girmez, varsayılan şifre yok):
+#   ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASS, ANDROID_KEY_PASS (yoksa = KEYSTORE_PASS), ANDROID_KEY_ALIAS (yoksa keytool bulur)
+#   Geçiş için eski ad KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS da okunur.
+# Yayınlanan APK'nın imza sertifikası EXPECTED_CERT ile aynı olmalı (kurulu uygulamalar başka anahtarla güncellenemez).
+name: release
+on:
+  push:
+    branches: [main, 'ortak-cekirdek-*']
+    tags: ['v*']
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: 3.35.x
+  # v1.0.2–v1.0.12 APK'larını imzalayan sertifika (SHA-256). Değiştirmeyin.
+  EXPECTED_CERT: 4e01b6f6cf5c82153bf4baccd12e8e1ec45256d9f30187b071f9dceecf3fad66
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Renk tokenları çekirdekle eşit mi (cekirdek/schemes.js → lib/core/fc_tokens.dart)
+        run: node tool/gen_fc_tokens.js --check
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Besin verisi (usda.json, aiy_map.json)
+        run: python3 tool/gen_data.py
+      - run: flutter pub get
+      - name: flutter analyze (hata ve uyarılar ölümcül)
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos > /tmp/analyze.txt 2>&1
+          st=$?
+          cat /tmp/analyze.txt
+          python3 tool/ci_annotate.py analyze /tmp/analyze.txt
+          exit $st
+      - name: flutter test
+        run: |
+          set +e
+          flutter test --file-reporter json:/tmp/test.json
+          st=$?
+          python3 tool/ci_annotate.py test /tmp/test.json
+          exit $st
+      - name: Sürüm tutarlılığı (pubspec = app_info = etiket)
+        run: |
+          v=$(grep -E '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9.]+).*/\1/')
+          grep -q "kAppVersion = '$v'" lib/core/app_info.dart || { echo "::error::app_info.dart kAppVersion ≠ pubspec $v"; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/v* ]] && [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::etiket $GITHUB_REF_NAME ≠ pubspec v$v"; exit 1
+          fi
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      signed: ${{ steps.sign.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Sürüm
+        id: ver
+        run: |
+          V=$(grep -E '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*([0-9.]+).*/\1/')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Sürüm: $V"
+      - name: Android projesini üret
+        run: |
+          mkdir -p /tmp/keep
+          cp -r pubspec.yaml lib assets analysis_options.yaml /tmp/keep/
+          flutter create . --platforms=android --project-name kalori_hesaplayici --org com.departures --overwrite
+          rm -rf lib assets pubspec.yaml analysis_options.yaml
+          cp -r /tmp/keep/. .
+          python3 tool/patch_android.py
+      - name: İmza anahtarı (yalnız secret'lardan)
+        id: sign
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 || secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS || secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.KEY_ALIAS }}
+          MUST_SIGN: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            if [ "$MUST_SIGN" = "true" ]; then
+              echo "::error::İmza secret'ları eksik: ANDROID_KEYSTORE_B64 ve ANDROID_KEYSTORE_PASS. Yayın yapılmadı."
+              exit 1
+            fi
+            echo "::warning::İmza secret'ları yok (ANDROID_KEYSTORE_PASS?). Bu dal derlemesi yalnız deneme içindir (debug imzalı, yayınlanmaz)."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ks="$RUNNER_TEMP/release.jks"
+          echo "$KS_B64" | base64 -d > "$ks"
+          if ! keytool -list -keystore "$ks" -storepass "$KS_PASS" >/dev/null 2>&1; then
+            echo "::error::Keystore şifresi yanlış (ANDROID_KEYSTORE_PASS)."
+            [ "$MUST_SIGN" = "true" ] && exit 1
+            echo "signed=false" >> "$GITHUB_OUTPUT"; rm -f "$ks"; exit 0
+          fi
+          if [ -z "$KEY_ALIAS" ]; then
+            KEY_ALIAS=$(keytool -list -keystore "$ks" -storepass "$KS_PASS" 2>/dev/null | grep -m1 PrivateKeyEntry | cut -d, -f1)
+          fi
+          [ -n "$KEY_ALIAS" ] || { echo "::error::Anahtar adı (alias) bulunamadı"; exit 1; }
+          echo "::add-mask::$KEY_ALIAS"
+          {
+            echo "KALORI_KEYSTORE=$ks"
+            echo "KALORI_STORE_PASS=$KS_PASS"
+            echo "KALORI_KEY_PASS=${KEY_PASS:-$KS_PASS}"
+            echo "KALORI_KEY_ALIAS=$KEY_ALIAS"
+          } >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - run: flutter pub get
+      # Hiçbir yapay zekâ anahtarı derlemeye verilmez (--dart-define yok); her kullanıcı kendi anahtarını girer.
+      - name: APK derle
+        run: flutter build apk --release --build-number=$(grep -E '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
+      - name: İmza sertifikasını doğrula
+        if: steps.sign.outputs.signed == 'true'
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          signer=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          got=$("$signer" verify --print-certs "$apk" | grep -m1 'certificate SHA-256 digest' | awk '{print $NF}')
+          echo "İmza sertifikası: $got"
+          if [ "$got" != "$EXPECTED_CERT" ]; then
+            echo "::error::APK beklenen anahtarla imzalanmadı ($got). Kurulu uygulamalar bu APK ile güncellenemez; yayın yapılmadı."
+            exit 1
+          fi
+      - name: Yayınlanacak dosyalar
+        run: |
+          rm -f "$RUNNER_TEMP/release.jks"
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk "release/KaloriHesaplayici-v${{ steps.ver.outputs.version }}.apk"
+          ls -la release; sha256sum release/*
+      - uses: actions/upload-artifact@v4
+        if: steps.sign.outputs.signed == 'true'
+        with:
+          name: release-android
+          path: release/
+          retention-days: 5
+
+  release:
+    needs: [test, build]
+    if: needs.build.outputs.signed == 'true' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    permissions:
+      contents: write
+    uses: departures-mil/ortak-cekirdek/.github/workflows/reusable-release.yml@main
+    with:
+      app_id: kalori-hesaplayici
+      version: ${{ needs.build.outputs.version }}
+      file_prefix: KaloriHesaplayici
+      release_title: Kalori Hesaplayıcı v${{ needs.build.outputs.version }}
+      # Asset adı eski güncelleyicinin (≤1.0.12, GitHub API'de ".apk" ile biten ilk asset) bulacağı biçimde kalır.
+      files: |
+        android=KaloriHesaplayici-v*.apk=KaloriHesaplayici-v{version}.apk
+      notes_json: release-notes.json
+      core_ref: main

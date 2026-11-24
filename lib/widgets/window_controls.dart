@@ -1,7 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/app_info.dart';
+import '../core/look.dart';
 import '../core/theme.dart';
+import '../data/news.dart';
+import '../data/settings.dart';
 import '../l10n/strings.dart';
 import '../screens/lan_sync_screen.dart';
 import '../services/sync_service.dart';
@@ -10,9 +16,13 @@ import 'common.dart';
 
 const _channel = MethodChannel('kalori/window');
 
-/// Top-right buttons: update, sync, minimize, close.
+/// Sağ üst sıra (ortak çekirdek): Eşitle (Wi‑Fi alt seçenek), Güncelle, tema, dil | Küçült, Kapat.
+/// Telefonda Orta / Tam ekran düğmeleri yoktur (uygulama zaten tam ekran).
 class WindowControls extends StatefulWidget {
   const WindowControls({super.key});
+
+  /// Açılıştaki tek sessiz denetimin sonucu (üst çubuktaki nokta).
+  static final ValueNotifier<UpdatePlan?> available = ValueNotifier(null);
 
   @override
   State<WindowControls> createState() => _WindowControlsState();
@@ -20,20 +30,6 @@ class WindowControls extends StatefulWidget {
 
 class _WindowControlsState extends State<WindowControls> {
   bool _syncing = false;
-  bool _updateAvailable = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _silentCheck();
-  }
-
-  Future<void> _silentCheck() async {
-    try {
-      final u = await UpdateService.check();
-      if (mounted) setState(() => _updateAvailable = u != null);
-    } catch (_) {}
-  }
 
   Future<void> _sync() async {
     final s = S.of(context);
@@ -57,13 +53,13 @@ class _WindowControlsState extends State<WindowControls> {
       builder: (b) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
-            leading: const Icon(Icons.cloud_sync_rounded, color: AppColors.rose),
+            leading: Icon(Icons.cloud_sync_rounded, color: AppColors.rose),
             title: Text(s['sync_online']),
             subtitle: Text(s['sync_online_hint']),
             onTap: () => Navigator.pop(b, 1),
           ),
           ListTile(
-            leading: const Icon(Icons.wifi_rounded, color: AppColors.lavender),
+            leading: Icon(Icons.wifi_rounded, color: AppColors.lavender),
             title: Text(s['lan_title']),
             subtitle: Text(s['lan_menu_hint']),
             onTap: () => Navigator.pop(b, 2),
@@ -80,6 +76,28 @@ class _WindowControlsState extends State<WindowControls> {
     }
   }
 
+  Future<void> _lang() async {
+    final s = S.of(context);
+    final st = Settings.instance;
+    final l = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (b) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final x in const [('tr', 'turkish'), ('en', 'english'), ('ar', 'arabic')])
+            ListTile(
+              leading: Icon(st.lang == x.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: AppColors.rose),
+              title: Text(s[x.$2]),
+              onTap: () => Navigator.pop(b, x.$1),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (l != null) st.lang = l;
+  }
+
   Future<void> _minimize() async {
     try {
       await _channel.invokeMethod('minimize');
@@ -93,10 +111,11 @@ class _WindowControlsState extends State<WindowControls> {
       builder: (c) => AlertDialog(
         title: Text(s['exit_confirm']),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false), child: Text(s['no'])),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(s['no'])),
           FilledButton(
-              onPressed: () => Navigator.pop(c, true), child: Text(s['yes'])),
+              style: FilledButton.styleFrom(minimumSize: const Size(90, 44)),
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(s['yes'])),
         ],
       ),
     );
@@ -106,25 +125,41 @@ class _WindowControlsState extends State<WindowControls> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _btn(
-          icon: Icons.system_update_alt_rounded,
-          tip: s['update'],
-          badge: _updateAvailable,
-          onTap: () => showUpdateDialog(context).then((_) => _silentCheck()),
-        ),
-        _btn(
-          icon: Icons.sync_rounded,
-          tip: s['sync'],
-          busy: _syncing,
-          onTap: _syncing ? null : _syncMenu,
-        ),
-        _btn(icon: Icons.remove_rounded, tip: s['minimize'], onTap: _minimize),
-        _btn(icon: Icons.close_rounded, tip: s['close'], onTap: _close),
-        const SizedBox(width: 6),
-      ],
+    final look = FcLook.instance;
+    return ValueListenableBuilder<UpdatePlan?>(
+      valueListenable: WindowControls.available,
+      builder: (context, plan, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _btn(
+            icon: Icons.sync_rounded,
+            tip: s['sync'],
+            busy: _syncing,
+            onTap: _syncing ? null : _syncMenu,
+          ),
+          _btn(
+            icon: Icons.system_update_alt_rounded,
+            tip: s['update'],
+            badge: plan != null,
+            onTap: () => showUpdateDialog(context),
+          ),
+          _btn(
+            icon: look.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            tip: s['theme_toggle'],
+            onTap: look.toggle,
+          ),
+          _btn(icon: Icons.translate_rounded, tip: s['language_btn'], onTap: _lang),
+          Container(
+            width: 1,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            color: FcLook.instance.palette.border,
+          ),
+          _btn(icon: Icons.remove_rounded, tip: s['minimize'], onTap: _minimize),
+          _btn(icon: Icons.close_rounded, tip: s['close'], onTap: _close),
+          const SizedBox(width: 4),
+        ],
+      ),
     );
   }
 
@@ -139,18 +174,16 @@ class _WindowControlsState extends State<WindowControls> {
         message: tip,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 busy
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(icon, size: 22, color: AppColors.ink),
+                        width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(icon, size: 21, color: AppColors.ink, semanticLabel: tip),
                 if (badge)
                   Positioned(
                     right: -2,
@@ -158,8 +191,7 @@ class _WindowControlsState extends State<WindowControls> {
                     child: Container(
                       width: 9,
                       height: 9,
-                      decoration: const BoxDecoration(
-                          color: AppColors.rose, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: AppColors.rose, shape: BoxShape.circle),
                     ),
                   ),
               ],
@@ -169,70 +201,100 @@ class _WindowControlsState extends State<WindowControls> {
       );
 }
 
-/// Full update flow: check → download (percent, MB, speed) → install.
-Future<void> showUpdateDialog(BuildContext context) async {
+/// Açılışta bir kez sessizce denetler; yeni sürüm varsa ekranda pencere açar.
+Future<void> startupUpdateCheck(BuildContext context) async {
+  try {
+    final plan = await UpdateService.check();
+    WindowControls.available.value = plan;
+    if (plan != null && context.mounted) await showUpdateDialog(context, plan: plan);
+  } catch (_) {}
+}
+
+/// Güncelleme: denetle → (onay) → indir (yüzde, MB, kalan, hız; yamada "yalnızca değişen
+/// kısımlar") → SHA-256 doğrula → kur.
+Future<void> showUpdateDialog(BuildContext context, {UpdatePlan? plan}) async {
   await showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const _UpdateDialog(),
+    builder: (_) => _UpdateDialog(plan: plan),
   );
 }
 
+enum _Stage { checking, none, ready, downloading, verifying, install, failed }
+
 class _UpdateDialog extends StatefulWidget {
-  const _UpdateDialog();
+  final UpdatePlan? plan;
+  const _UpdateDialog({this.plan});
 
   @override
   State<_UpdateDialog> createState() => _UpdateDialogState();
 }
 
 class _UpdateDialogState extends State<_UpdateDialog> {
-  String _status = '';
-  UpdateInfo? _info;
-  DownloadProgress? _progress;
-  bool _done = false;
-  bool _failed = false;
-  bool _busy = true;
+  _Stage _stage = _Stage.checking;
+  UpdatePlan? _plan;
+  UpdateProgress? _p;
+  String _error = '';
+  bool _fellBack = false;
+  File? _apk;
 
   @override
   void initState() {
     super.initState();
-    _run();
+    if (widget.plan != null) {
+      _plan = widget.plan;
+      _stage = _Stage.ready;
+    } else {
+      _check();
+    }
   }
 
-  Future<void> _run() async {
-    final s = S.of(context);
-    setState(() => _status = s['check_update']);
+  Future<void> _check() async {
+    setState(() => _stage = _Stage.checking);
     try {
-      final info = await UpdateService.check();
+      final plan = await UpdateService.check();
+      WindowControls.available.value = plan;
       if (!mounted) return;
-      if (info == null) {
+      setState(() {
+        _plan = plan;
+        _stage = plan == null ? _Stage.none : _Stage.ready;
+      });
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _status = s['up_to_date'];
-          _busy = false;
-          _done = true;
+          _stage = _Stage.failed;
+          _error = '$e';
         });
-        return;
       }
-      setState(() {
-        _info = info;
-        _status = s.f('update_available', {'v': info.version});
-      });
-      final file = await UpdateService.download(info, (p) {
-        if (mounted) setState(() => _progress = p);
-      });
+    }
+  }
+
+  Future<void> _go() async {
+    final plan = _plan!;
+    setState(() => _stage = _Stage.downloading);
+    try {
+      final f = await UpdateService.obtain(
+        plan,
+        (p) {
+          if (mounted) setState(() => _p = p);
+        },
+        onFallback: (_) {
+          if (mounted) setState(() => _fellBack = true);
+        },
+        onVerifying: () {
+          if (mounted) setState(() => _stage = _Stage.verifying);
+        },
+      );
+      _apk = f;
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _done = true;
-        _status = s['install'];
-      });
-      await UpdateService.install(file);
+      setState(() => _stage = _Stage.install);
+      await UpdateService.install(f);
     } catch (e) {
       if (!mounted) return;
+      final s = S.of(context);
       setState(() {
-        _busy = false;
-        _failed = true;
-        _status = '${s['update_failed']}\n$e';
+        _stage = _Stage.failed;
+        _error = e is UpdateVerifyException ? s['upd_bad'] : '$e';
       });
     }
   }
@@ -240,52 +302,155 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final p = _progress;
+    final p = _p;
+    final plan = _plan;
+    final busy = _stage == _Stage.checking ||
+        _stage == _Stage.downloading ||
+        _stage == _Stage.verifying;
+    final status = switch (_stage) {
+      _Stage.checking => s['check_update'],
+      _Stage.none => '${s['up_to_date']} (v$kAppVersion)',
+      _Stage.ready => s.f('update_available', {'v': plan?.version ?? ''}),
+      _Stage.downloading => s.f('update_available', {'v': plan?.version ?? ''}),
+      _Stage.verifying => s['upd_verifying'],
+      _Stage.install => s['install'],
+      _Stage.failed => '${s['update_failed']}\n$_error',
+    };
     return AlertDialog(
       title: Row(children: [
-        const Icon(Icons.system_update_alt_rounded, color: AppColors.rose),
+        Icon(Icons.system_update_alt_rounded, color: AppColors.rose),
         const SizedBox(width: 8),
-        Text(s['update']),
+        Expanded(child: Text(s['update'])),
       ]),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_status),
-          if (p != null) ...[
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                  value: p.fraction, minHeight: 10, color: AppColors.rose),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${(p.fraction * 100).toStringAsFixed(0)}%  •  '
-              '${DownloadProgress.mb(p.received)} / ${DownloadProgress.mb(p.total)}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            Text(
-              '${s['remaining']}: ${DownloadProgress.mb(p.remaining)}  •  ${p.speedText}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ] else if (_busy) ...[
-            const SizedBox(height: 14),
-            const LinearProgressIndicator(color: AppColors.rose),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(status),
+            if (_stage == _Stage.ready) ...[
+              const SizedBox(height: 6),
+              Text(s['upd_press'], style: Theme.of(context).textTheme.bodySmall),
+            ],
+            if (_fellBack) ...[
+              const SizedBox(height: 6),
+              Text(s['upd_fallback'], style: Theme.of(context).textTheme.bodySmall),
+            ],
+            if (p != null && _stage != _Stage.ready) ...[
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                    value: _stage == _Stage.verifying ? null : p.fraction, minHeight: 10),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${p.percent}%  •  ${UpdateProgress.mb(p.received)} MB / ${UpdateProgress.mb(p.total)} MB',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                textDirection: TextDirection.ltr,
+              ),
+              Text(
+                '${s.f('upd_remaining', {'n': UpdateProgress.mb(p.remaining)})}  •  '
+                '${s.f('upd_speed', {'n': UpdateProgress.mb(p.speedBps)})}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(p.patchMode ? s['upd_patch'] : s['upd_full'],
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: p.patchMode ? FcLook.instance.palette['ok-text'] : AppColors.inkSoft)),
+            ] else if (busy) ...[
+              const SizedBox(height: 14),
+              const LinearProgressIndicator(),
+            ],
+            if (plan != null && plan.note(s.code).trim().isNotEmpty &&
+                (_stage == _Stage.ready || _stage == _Stage.downloading)) ...[
+              const SizedBox(height: 12),
+              Text(plan.note(s.code).trim(),
+                  style: Theme.of(context).textTheme.bodySmall, maxLines: 8),
+            ],
+            if (_stage == _Stage.none && kNews.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showWhatsNew(context, force: true);
+                },
+                child: Text(s['wn_show']),
+              ),
+            ],
           ],
-          if (_info != null && _info!.notes.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(_info!.notes.trim(),
-                style: Theme.of(context).textTheme.bodySmall, maxLines: 6),
-          ],
-        ],
+        ),
       ),
       actions: [
-        if (!_busy || _failed)
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(_done ? s['ok'] : s['cancel'])),
+        if (_stage == _Stage.ready) ...[
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(s['upd_later'])),
+          FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(120, 44)),
+              onPressed: _go,
+              child: Text(s['upd_now'])),
+        ] else if (_stage == _Stage.install && _apk != null) ...[
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(s['ok'])),
+          FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
+              onPressed: () => UpdateService.install(_apk!),
+              child: Text(s['upd_install_again'])),
+        ] else if (!busy)
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(s['ok']))
       ],
     );
   }
+}
+
+/// "Neler yeni": güncellemeden sonraki ilk açılışta bir kez (ya da istenince).
+Future<void> showWhatsNew(BuildContext context, {bool force = false}) async {
+  final st = Settings.instance;
+  final seen = st.lastSeenVersion;
+  if (!force) {
+    st.lastSeenVersion = kAppVersion;
+    // ilk kurulumda gösterilmez; yalnızca eski bir sürümden güncellenince
+    if (seen == kAppVersion || !st.welcomed) return;
+  }
+  if (!context.mounted || kNews.isEmpty) return;
+  final s = S.of(context);
+  final n = kNews.first;
+  final items = n.items[s.code] ?? n.items['en'] ?? const <String>[];
+  await showDialog(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(s['wn_title']),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.f('wn_ver', {'v': n.v}),
+                style: TextStyle(color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            if (items.isEmpty) Text(s['wn_none']),
+            for (final i in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Icon(Icons.circle, size: 7, color: AppColors.rose),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(i)),
+                ]),
+              ),
+            const SizedBox(height: 4),
+            Text(s['wn_safe'], style: Theme.of(c).textTheme.bodySmall),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
+            onPressed: () => Navigator.pop(c),
+            child: Text(s['ok'])),
+      ],
+    ),
+  );
 }

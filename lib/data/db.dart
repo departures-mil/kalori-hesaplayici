@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'merge_rule.dart';
 import 'models.dart';
 
 class AppDb {
@@ -17,9 +18,10 @@ class AppDb {
     final dir = await getApplicationDocumentsDirectory();
     _db = await openDatabase(
       p.join(dir.path, 'kalori.db'),
-      version: 2,
+      version: 3,
       onUpgrade: (d, from, to) async {
         if (from < 2) await _v2(d);
+        if (from < 3) await _v3(d);
       },
       onCreate: (d, v) async {
         await d.execute('''
@@ -45,6 +47,7 @@ class AppDb {
           CREATE TABLE weight(day TEXT PRIMARY KEY, kg REAL NOT NULL, updated INTEGER NOT NULL DEFAULT 0)''');
         await d.execute('''
           CREATE TABLE products(barcode TEXT PRIMARY KEY, json TEXT NOT NULL)''');
+        await _v3(d);
       },
     );
     return _db!;
@@ -64,6 +67,17 @@ class AppDb {
           where: 'id = ?', whereArgs: [r['id']]);
     }
     await d.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_uid ON entries(uid)');
+  }
+
+  /// v3: Wi‑Fi eşitlemesinde üzerine yazılan yerel hâllerin yedeği (çakışma yedeği).
+  static Future<void> _v3(Database d) async {
+    await d.execute('''
+      CREATE TABLE IF NOT EXISTS cakisma(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tablo TEXT NOT NULL,
+        anahtar TEXT NOT NULL,
+        json TEXT NOT NULL,
+        zaman INTEGER NOT NULL)''');
   }
 
   static final _rnd = Random.secure();
@@ -208,6 +222,25 @@ class AppDb {
 
   // ---------------- Wi-Fi eşitleme ----------------
 
+  /// Arşiv: silinen (ya da öbür cihazda silinip burada arşivlenen) kayıtlar.
+  Future<List<DiaryEntry>> archivedEntries() async {
+    final d = await db;
+    final rows = await d.query('entries',
+        where: 'deleted = 1', orderBy: 'updated DESC', limit: 500);
+    return rows.map(_row).toList();
+  }
+
+  Future<void> restoreEntry(int id) async {
+    final d = await db;
+    await d.update('entries', {'deleted': 0, 'updated': _now()},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> conflictCount() async {
+    final d = await db;
+    return Sqflite.firstIntValue(await d.rawQuery('SELECT COUNT(*) FROM cakisma')) ?? 0;
+  }
+
   /// Bütün günlük (silinenler dahil), su ve kilo kayıtları.
   /// Fotoğraf dosya yolu cihaza özel olduğundan gönderilmez.
   Future<Map<String, dynamic>> exportAll() async {
@@ -259,14 +292,20 @@ class AppDb {
           'updated': (r['updated'] as num?)?.toInt() ?? t,
           'deleted': (r['deleted'] as num?)?.toInt() ?? 0,
         };
-        final mine = await tx.query('entries',
-            columns: ['updated'], where: 'uid = ?', whereArgs: [uid]);
-        if (mine.isEmpty) {
-          await tx.insert('entries', {...row, 'uid': uid});
-          if (row['deleted'] == 0) added++;
-        } else if ((row['updated'] as int) > ((mine.first['updated'] as num?)?.toInt() ?? 0)) {
-          await tx.update('entries', row, where: 'uid = ?', whereArgs: [uid]);
-          updated++;
+        final mine = await tx.query('entries', where: 'uid = ?', whereArgs: [uid]);
+        switch (mergeDecision(
+            exists: mine.isNotEmpty,
+            mineUpdated: mine.isEmpty ? 0 : (mine.first['updated'] as num?)?.toInt() ?? 0,
+            theirsUpdated: row['updated'] as int)) {
+          case MergeAction.insert:
+            await tx.insert('entries', {...row, 'uid': uid});
+            if (row['deleted'] == 0) added++;
+          case MergeAction.backupAndReplace:
+            await _backup(tx, 'entries', uid, mine.first);
+            await tx.update('entries', row, where: 'uid = ?', whereArgs: [uid]);
+            updated++;
+          case MergeAction.keep:
+            break;
         }
       }
       for (final table in const ['water', 'weight']) {
@@ -276,16 +315,33 @@ class AppDb {
           if (day == null) continue;
           final mine = await tx.query(table, where: 'day = ?', whereArgs: [day]);
           final ru = (r['updated'] as num?)?.toInt() ?? 0;
-          if (mine.isEmpty) {
-            await tx.insert(table, r);
-            added++;
-          } else if (ru > ((mine.first['updated'] as num?)?.toInt() ?? 0)) {
-            await tx.update(table, r, where: 'day = ?', whereArgs: [day]);
-            updated++;
+          switch (mergeDecision(
+              exists: mine.isNotEmpty,
+              mineUpdated: mine.isEmpty ? 0 : (mine.first['updated'] as num?)?.toInt() ?? 0,
+              theirsUpdated: ru)) {
+            case MergeAction.insert:
+              await tx.insert(table, r);
+              added++;
+            case MergeAction.backupAndReplace:
+              await _backup(tx, table, day, mine.first);
+              await tx.update(table, r, where: 'day = ?', whereArgs: [day]);
+              updated++;
+            case MergeAction.keep:
+              break;
           }
         }
       }
     });
     return {'added': added, 'updated': updated};
+  }
+
+  static Future<void> _backup(
+      Transaction tx, String table, String key, Map<String, Object?> row) async {
+    await tx.insert('cakisma', {
+      'tablo': table,
+      'anahtar': key,
+      'json': jsonEncode(row),
+      'zaman': _now(),
+    });
   }
 }

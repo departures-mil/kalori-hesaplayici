@@ -41,17 +41,23 @@ class Usage {
     } catch (_) {}
     final t = today();
     if (v['gun'] != t) {
-      v = {'gun': t, 'istek': 0, 'token': 0, 'doldu': false, 'dun': v['gun'] == null ? null : {'istek': v['istek'] ?? 0, 'token': v['token'] ?? 0}};
+      v = {'gun': t, 'istek': 0, 'token': 0, 'doldu': false, 'ai': <String, dynamic>{}, 'dun': v['gun'] == null ? null : {'istek': v['istek'] ?? 0, 'token': v['token'] ?? 0}};
       await sp.setString(_k, jsonEncode(v));
     }
     return v;
   }
 
   /// Her yapay zekâ isteğinden sonra çağrılır; hata fırlatmaz.
-  static Future<void> record(int status, String body) async {
+  /// [provider]: gemini | openai | claude — sağlayıcıya göre çağrı sayısı (Kullanım Limitleri kartı).
+  static Future<void> record(int status, String body, {String provider = ''}) async {
     try {
       final v = await load();
       v['istek'] = (v['istek'] as int? ?? 0) + 1;
+      if (provider.isNotEmpty) {
+        final ai = v['ai'] is Map ? Map<String, dynamic>.from(v['ai'] as Map) : <String, dynamic>{};
+        ai[provider] = ((ai[provider] as num?)?.toInt() ?? 0) + 1;
+        v['ai'] = ai;
+      }
       final b = body.toLowerCase();
       if (status == 429 || b.contains('resource_exhausted') || b.contains('insufficient_quota') || b.contains('rate_limit')) {
         v['doldu'] = true;

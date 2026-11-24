@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_info.dart';
 import '../core/theme.dart';
 import '../data/settings.dart';
 import '../l10n/strings.dart';
 import '../services/ai_error.dart';
 import '../services/fc_agent.dart';
+import '../services/fc_crash.dart';
 import '../services/online_analyzer.dart';
-import '../services/update_service.dart';
 import '../widgets/accuracy_card.dart';
 import '../widgets/common.dart';
+import '../widgets/look_picker.dart';
 import '../widgets/usage_card.dart';
 import '../widgets/window_controls.dart';
+import 'archive_screen.dart';
 import 'contact_section.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -35,9 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    UpdateService.currentVersion().then((v) {
-      if (mounted) setState(() => _version = v);
-    });
+    _version = kAppVersion;
   }
 
   void _saveProfile() {
@@ -54,21 +55,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 40),
       children: [
+        _section(s['look']),
+        SoftCard(child: LookPicker()),
         _section(s['language']),
         SoftCard(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(8),
           child: Row(
             children: [
-              for (final l in const [
+              for (final l in [
                 ('tr', 'turkish'),
                 ('en', 'english'),
                 ('ar', 'arabic')
               ])
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(4),
+                    padding: EdgeInsets.all(4),
                     child: ChoiceChip(
                       label: Center(child: Text(s[l.$2])),
                       selected: st.lang == l.$1,
@@ -86,42 +89,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Row(children: [
                 Expanded(child: _num(_age, s['age'])),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: _num(_height, s['height_cm'])),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: _num(_weight, s['weight_kg'])),
               ]),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _drop<Activity>(
                   s['activity'],
                   st.activity,
                   Activity.values,
                   (a) => s['act_${a.name}'],
                   (v) => st.setProfile(activity: v)),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               _drop<Goal>(s['goal'], st.goal, Goal.values,
                   (g) => s['goal_${g.name}'], (v) => st.setProfile(goal: v)),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               _drop<Special>(
                   s['special'],
                   st.special,
                   Special.values,
                   (g) => s['special_${g.name}'],
                   (v) => st.setProfile(special: v)),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _num(_custom, s['custom_goal']),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: Text(
                         '${s['calculated_goal']}: ${st.calculatedGoal} ${s['kcal']}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   FilledButton(
                     onPressed: _saveProfile,
                     style: FilledButton.styleFrom(
-                        minimumSize: const Size(90, 44)),
+                        minimumSize: Size(90, 44)),
                     child: Text(s['save']),
                   ),
                 ],
@@ -135,35 +138,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Text(s['key_hint'],
                   style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                   controller: _gemini,
                   obscureText: true,
                   decoration: InputDecoration(
                       labelText: s['gemini_key'],
                       hintText: st.geminiKey.isNotEmpty ? '••••••••' : '')),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                   controller: _openai,
                   obscureText: true,
                   decoration: InputDecoration(labelText: s['openai_key'])),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                   controller: _claude,
                   obscureText: true,
                   decoration: InputDecoration(labelText: s['claude_key'])),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                 OutlinedButton.icon(
                   onPressed: _testAi,
                   style:
-                      OutlinedButton.styleFrom(minimumSize: const Size(90, 44)),
-                  icon: const Icon(Icons.wifi_tethering_rounded, size: 18),
+                      OutlinedButton.styleFrom(minimumSize: Size(90, 44)),
+                  icon: Icon(Icons.wifi_tethering_rounded, size: 18),
                   label: Text(s['ai_test']),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 IconButton(
                   tooltip: s['clear_keys'],
                   onPressed: () {
@@ -174,9 +177,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     setState(() {});
                     showSnack(context, s['keys_cleared']);
                   },
-                  icon: const Icon(Icons.delete_sweep_rounded),
+                  icon: Icon(Icons.delete_sweep_rounded),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 FilledButton(
                   onPressed: () {
                     st.setKeys(
@@ -187,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     showSnack(context, s['saved']);
                   },
                   style:
-                      FilledButton.styleFrom(minimumSize: const Size(90, 44)),
+                      FilledButton.styleFrom(minimumSize: Size(90, 44)),
                   child: Text(s['save']),
                 ),
                 ],
@@ -196,28 +199,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         _section(s['accuracy_title']),
-        const AccuracyCard(),
+        AccuracyCard(),
         _section(s['update']),
         SoftCard(
           child: Row(
             children: [
-              Expanded(child: Text('${s['version']}: $_version')),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${s['version']}: $_version'),
+                  TextButton(
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+                    onPressed: () => showWhatsNew(context, force: true),
+                    child: Text(s['wn_show']),
+                  ),
+                ]),
+              ),
               FilledButton.icon(
                 onPressed: () => showUpdateDialog(context),
                 style:
-                    FilledButton.styleFrom(minimumSize: const Size(120, 44)),
-                icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                    FilledButton.styleFrom(minimumSize: Size(120, 44)),
+                icon: Icon(Icons.system_update_alt_rounded, size: 18),
                 label: Text(s['update']),
               ),
             ],
           ),
         ),
         _section(s['usage_title']),
-        const UsageCard(),
+        UsageCard(),
         _section('✦ ${FcAgent.instance.t('title')}'),
-        const FcAgentCard(),
+        FcAgentCard(),
+        _section(s['crash_title']),
+        _CrashCard(),
+        _section(s['arch_title']),
+        SoftCard(
+          child: Row(children: [
+            Expanded(child: Text(s['arch_desc'], style: Theme.of(context).textTheme.bodySmall)),
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(90, 44)),
+              onPressed: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const ArchiveScreen())),
+              icon: const Icon(Icons.inventory_2_outlined, size: 18),
+              label: Text(s['arch_open']),
+            ),
+          ]),
+        ),
+        // Admin ile iletişim HER ZAMAN EN SONDA (ortak çekirdek kuralı)
         _section(s['contact_title']),
-        const ContactSection(),
+        ContactSection(),
       ],
     );
   }
@@ -229,8 +258,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         content: Row(children: [
-          const CircularProgressIndicator(color: AppColors.rose),
-          const SizedBox(width: 16),
+          CircularProgressIndicator(color: AppColors.rose),
+          SizedBox(width: 16),
           Expanded(child: Text(s['ai_testing'])),
         ]),
       ),
@@ -265,19 +294,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : e.value!.kind == AiErrorKind.noKey
                               ? Colors.grey
                               : AppColors.rose),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(e.key,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ]),
                 Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 32, bottom: 4),
+                  padding: EdgeInsetsDirectional.only(start: 32, bottom: 4),
                   child: Text(e.value == null ? s['ai_ok'] : s[e.value!.key]),
                 ),
                 if (e.value != null && e.value!.detail.isNotEmpty &&
                     e.value!.kind != AiErrorKind.noKey)
                   Padding(
                     padding:
-                        const EdgeInsetsDirectional.only(start: 32, bottom: 10),
+                        EdgeInsetsDirectional.only(start: 32, bottom: 10),
                     child: SelectableText(e.value!.detail,
                         style: Theme.of(c).textTheme.bodySmall),
                   ),
@@ -294,13 +323,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _section(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+        padding: EdgeInsets.fromLTRB(4, 18, 4, 8),
         child: Text(t, style: Theme.of(context).textTheme.titleMedium),
       );
 
   Widget _num(TextEditingController c, String label) => TextField(
         controller: c,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(labelText: label, isDense: true),
       );
 
@@ -319,4 +348,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
         },
       );
+}
+
+class _CrashCard extends StatefulWidget {
+  const _CrashCard();
+
+  @override
+  State<_CrashCard> createState() => _CrashCardState();
+}
+
+class _CrashCardState extends State<_CrashCard> {
+  bool _on = true;
+  int _sent = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final on = await FcCrash.enabled();
+    final n = await FcCrash.sentToday();
+    if (mounted) {
+      setState(() {
+        _on = on;
+        _sent = n;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return SoftCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(s['crash_desc'], style: Theme.of(context).textTheme.bodySmall),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _on,
+          title: Text(s['crash_on']),
+          onChanged: (v) async {
+            await FcCrash.setEnabled(v);
+            _load();
+          },
+        ),
+        Text(s.f('crash_sent', {'n': _sent}), style: Theme.of(context).textTheme.bodySmall),
+      ]),
+    );
+  }
 }

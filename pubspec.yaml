@@ -1,7 +1,7 @@
 name: kalori_hesaplayici
 description: Kalori Hesaplayici - fotograftan kalori analizi, ajanda ve gunluk takip.
 publish_to: "none"
-version: 1.0.12+13
+version: 1.1.0+14
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -41,3 +41,23 @@ flutter:
     - assets/data/labels_map.json
     - assets/data/usda.json
     - assets/data/aiy_map.json
+  # Ortak çekirdek yazı tipleri (OFL): Inter + Noto Sans Arabic
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-400.ttf
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-700.ttf
+          weight: 700
+    - family: NotoSansArabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-400.ttf
+        - asset: assets/fonts/NotoSansArabic-500.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansArabic-600.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansArabic-700.ttf
+          weight: 700

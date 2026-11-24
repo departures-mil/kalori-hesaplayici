@@ -52,18 +52,18 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextField(
                 controller: ctrl,
                 autofocus: true,
                 keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                    TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(labelText: s['amount']),
                 onChanged: (_) => set(() {}),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 4, children: [
                 for (final e in opts.entries)
                   ChoiceChip(
@@ -82,12 +82,12 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                     }),
                   ),
               ]),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text('= ${g.round()} g',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 16)),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               FilledButton(
                 onPressed: g > 0 ? () => Navigator.pop(c, g) : null,
                 child: Text(s['ok']),
@@ -155,13 +155,13 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
             TextField(
                 controller: name,
                 decoration: InputDecoration(labelText: s['name'])),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             TextField(
                 controller: kcal,
                 keyboardType: TextInputType.number,
                 decoration:
                     InputDecoration(labelText: s['calories_per_100'])),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             TextField(
                 controller: grams,
                 keyboardType: TextInputType.number,
@@ -191,49 +191,49 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     final list = FoodDb.instance.search(_q, lang);
     final usda = _q.trim().length >= 3
         ? NutritionDb.instance.search(_q)
-        : const <UsdaFood>[];
+        : <UsdaFood>[];
     return Scaffold(
       appBar: AppBar(title: Text(s['manual_add'])),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
             child: TextField(
               onChanged: (v) => setState(() => _q = v),
               decoration: InputDecoration(
                 hintText: s['search_food'],
-                prefixIcon: const Icon(Icons.search_rounded),
+                prefixIcon: Icon(Icons.search_rounded),
               ),
             ),
           ),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 100),
               itemCount: list.length + (usda.isEmpty ? 0 : usda.length + 1),
               itemBuilder: (_, i) {
                 if (i >= list.length) {
                   final j = i - list.length;
                   if (j == 0) {
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                      padding: EdgeInsets.fromLTRB(4, 12, 4, 8),
                       child: Text(s['usda_section'],
                           style: Theme.of(context).textTheme.titleSmall),
                     );
                   }
                   final u = usda[j - 1];
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 8),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () => _pickUsda(u),
                       child: SoftCard(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 16, vertical: 10),
                         child: Row(children: [
                           Expanded(
                               child: Text(u.desc,
-                                  style: const TextStyle(fontSize: 13))),
-                          const SizedBox(width: 8),
+                                  style: TextStyle(fontSize: 13))),
+                          SizedBox(width: 8),
                           Text('${u.kcal.round()} ${s['kcal']}/100 g',
                               style: Theme.of(context).textTheme.bodySmall),
                         ]),
@@ -243,12 +243,12 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                 }
                 final f = list[i];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.only(bottom: 8),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () => _pickFood(f, lang),
                     child: SoftCard(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
@@ -257,7 +257,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(f.name(lang),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontWeight: FontWeight.w600)),
                                 Text(
                                     '${f.kcal.round()} ${s['kcal']} / 100 g  •  ${f.portion.round()} g',
@@ -269,7 +269,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
                           ),
                           Text(
                               '${(f.kcal * f.portion / 100).round()} ${s['kcal']}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.rose)),
                         ],
@@ -286,7 +286,7 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
         onPressed: _custom,
         backgroundColor: AppColors.rose,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
+        icon: Icon(Icons.add),
         label: Text(s['manual_add']),
       ),
     );

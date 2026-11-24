@@ -174,7 +174,7 @@ class _ResultScreenState extends State<ResultScreen> {
   Future<void> _addItem() async {
     final item = await Navigator.push<FoodItem>(
       context,
-      MaterialPageRoute(builder: (_) => const ManualAddScreen(pickOnly: true)),
+      MaterialPageRoute(builder: (_) => ManualAddScreen(pickOnly: true)),
     );
     if (item != null) setState(() => items.add(item..confirmed = true));
   }
@@ -199,34 +199,34 @@ class _ResultScreenState extends State<ResultScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(s['result'])),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 120),
         children: [
           if (img != null && img.existsSync())
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
               child: Image.file(img, height: 220, fit: BoxFit.cover),
             ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           GradientCard(
             child: Column(
               children: [
                 Text(s['total_calories'],
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white70, fontWeight: FontWeight.w600)),
                 Text('${total.round()}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.white,
                         fontSize: 44,
                         fontWeight: FontWeight.w800)),
                 Text(s['kcal'],
-                    style: const TextStyle(color: Colors.white70)),
+                    style: TextStyle(color: Colors.white70)),
                 if (showRange) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text('${s['range_label']}: $lo – $hi ${s['kcal']}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w600)),
                 ],
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -237,60 +237,60 @@ class _ResultScreenState extends State<ResultScreen> {
                   ],
                 ),
                 if (_analysed) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _ConfidenceBar(value: conf, label: s['conf_label']),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10)),
                   child: Text(sourceLabel,
                       style:
-                          const TextStyle(color: Colors.white, fontSize: 12)),
+                          TextStyle(color: Colors.white, fontSize: 12)),
                 ),
               ],
             ),
           ),
           if (source == AnalysisSource.offline && imagePath != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _reanalyzing ? null : _reanalyze,
               icon: _reanalyzing
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.cloud_sync_rounded),
+                  : Icon(Icons.cloud_sync_rounded),
               label: Text(s['reanalyze_online']),
             ),
           ],
           if (_analysed && unsure.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             SoftCard(
               color: AppColors.peach.withValues(alpha: 0.18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    const Icon(Icons.help_outline_rounded,
+                    Icon(Icons.help_outline_rounded,
                         color: AppColors.carbs),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(s['check_title'],
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 16)),
                     ),
                   ]),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(s['check_sub'],
                       style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   for (final u in unsure)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: EdgeInsets.only(top: 4),
                       child: Text(
                           '• ${u.name}: ${u.question ?? s['ask_portion']}'),
                     ),
@@ -298,15 +298,15 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           Row(
             children: [
               Text(s['items_found'],
                   style: Theme.of(context).textTheme.titleLarge),
-              const Spacer(),
+              Spacer(),
               IconButton(
                   onPressed: _addItem,
-                  icon: const Icon(Icons.add_circle_rounded,
+                  icon: Icon(Icons.add_circle_rounded,
                       color: AppColors.rose, size: 28)),
             ],
           ),
@@ -319,12 +319,12 @@ class _ResultScreenState extends State<ResultScreen> {
                 onDelete: () => setState(() => items.removeAt(e.key)),
               )),
           if (_analysed) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             _hiddenCard(s),
           ],
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(s['meal'], style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: MealType.values
@@ -338,9 +338,9 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
           if (widget.result.note != null &&
               widget.result.note!.isNotEmpty &&
-              !const ['no_internet', 'online_failed', 'no_key']
+              !['no_internet', 'online_failed', 'no_key']
                   .contains(widget.result.note)) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SoftCard(
                 color: AppColors.lavenderSoft.withValues(alpha: 0.4),
                 child: Text(widget.result.note!)),
@@ -348,11 +348,11 @@ class _ResultScreenState extends State<ResultScreen> {
         ],
       ),
       bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 24),
         color: AppColors.cream,
         child: FilledButton.icon(
           onPressed: _saving || _all.isEmpty ? null : _save,
-          icon: const Icon(Icons.bookmark_added_rounded),
+          icon: Icon(Icons.bookmark_added_rounded),
           label: Text(widget.editing == null ? s['add_to_diary'] : s['save']),
         ),
       ),
@@ -365,15 +365,15 @@ class _ResultScreenState extends State<ResultScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.visibility_off_rounded, color: AppColors.lavender),
-            const SizedBox(width: 8),
+            Icon(Icons.visibility_off_rounded, color: AppColors.lavender),
+            SizedBox(width: 8),
             Text(s['hidden_title'],
                 style:
-                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ]),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(s['hidden_sub'], style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           for (final h in _hidden)
             Builder(builder: (_) {
               final n = _extra[h.key] ?? 0;
@@ -399,15 +399,15 @@ class _ResultScreenState extends State<ResultScreen> {
                       onPressed: n > 0
                           ? () => setState(() => _extra[h.key] = n - 1)
                           : null,
-                      icon: const Icon(Icons.remove_circle_outline_rounded)),
+                      icon: Icon(Icons.remove_circle_outline_rounded)),
                   Text('$n',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16)),
                   IconButton(
                       onPressed: n < 20
                           ? () => setState(() => _extra[h.key] = n + 1)
                           : null,
-                      icon: const Icon(Icons.add_circle_outline_rounded,
+                      icon: Icon(Icons.add_circle_outline_rounded,
                           color: AppColors.rose)),
                 ],
               );
@@ -419,10 +419,10 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Widget _macro(String label, double g) => Column(children: [
         Text('${g.round()} g',
-            style: const TextStyle(
+            style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w700)),
         Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            style: TextStyle(color: Colors.white70, fontSize: 12)),
       ]);
 }
 
@@ -442,8 +442,8 @@ class _ConfidenceBar extends StatelessWidget {
     return Row(
       children: [
         Text('$label ${(v * 100).round()}%',
-            style: const TextStyle(color: Colors.white, fontSize: 12)),
-        const SizedBox(width: 10),
+            style: TextStyle(color: Colors.white, fontSize: 12)),
+        SizedBox(width: 10),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
@@ -499,7 +499,7 @@ class _ItemCardState extends State<_ItemCard> {
     final lo = item.kcalMin.round(), hi = item.kcalMax.round();
     final small = Theme.of(context).textTheme.bodySmall;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: 10),
       child: SoftCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,7 +514,7 @@ class _ItemCardState extends State<_ItemCard> {
                       _changed();
                     },
                     child: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 6),
+                      padding: EdgeInsetsDirectional.only(end: 6),
                       child: Icon(
                           item.confirmed
                               ? Icons.check_circle_rounded
@@ -526,14 +526,14 @@ class _ItemCardState extends State<_ItemCard> {
                   ),
                 Expanded(
                   child: Text(item.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16)),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('${item.kcal.round()} ${s['kcal']}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w800,
                             color: AppColors.rose)),
                     if (widget.detailed && hi - lo >= 5)
@@ -542,35 +542,35 @@ class _ItemCardState extends State<_ItemCard> {
                 ),
                 IconButton(
                     onPressed: widget.onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded,
+                    icon: Icon(Icons.delete_outline_rounded,
                         color: AppColors.inkSoft)),
               ],
             ),
             if (widget.detailed && item.question != null && !item.confirmed)
               Container(
-                margin: const EdgeInsets.only(bottom: 6),
+                margin: EdgeInsets.only(bottom: 6),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                     color: AppColors.peach.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10)),
                 child: Row(children: [
-                  const Icon(Icons.help_outline_rounded,
+                  Icon(Icons.help_outline_rounded,
                       size: 16, color: AppColors.carbs),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Expanded(
                       child: Text(item.question!,
-                          style: const TextStyle(fontSize: 13))),
+                          style: TextStyle(fontSize: 13))),
                 ]),
               ),
             Row(
               children: [
                 Text('${s['portion']}: ${item.grams.round()} ${s['grams']}',
                     style: small),
-                const Spacer(),
+                Spacer(),
                 if (src != null) ...[
                   _badge(src),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                 ],
                 if (item.confidence < 1 && !item.confirmed)
                   Text('${s['confidence']}: ${(item.confidence * 100).round()}%',
@@ -579,11 +579,11 @@ class _ItemCardState extends State<_ItemCard> {
             ),
             if (item.learned)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: EdgeInsets.only(top: 2),
                 child: Row(children: [
-                  const Icon(Icons.auto_graph_rounded,
+                  Icon(Icons.auto_graph_rounded,
                       size: 14, color: AppColors.lavender),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Expanded(child: Text(s['learned_note'], style: small)),
                 ]),
               ),
@@ -601,30 +601,30 @@ class _ItemCardState extends State<_ItemCard> {
             Row(
               children: [
                 _portionBtn(s['small'], 0.6),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 _portionBtn(s['medium'], 1.0),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 _portionBtn(s['large'], 1.5),
-                const Spacer(),
+                Spacer(),
                 MacroChip(
                     label: 'P', grams: item.protein, color: AppColors.protein),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 MacroChip(
                     label: 'C', grams: item.carbs, color: AppColors.carbs),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 MacroChip(label: 'F', grams: item.fat, color: AppColors.fat),
               ],
             ),
             if (widget.detailed) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(s['cook_title'], style: small),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(children: [
                   for (final c in _cooks)
                     Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 6),
+                      padding: EdgeInsetsDirectional.only(end: 6),
                       child: ChoiceChip(
                         label: Text(s['cook_$c']),
                         selected: (item.cook ?? item.cookBase) == c,
@@ -640,11 +640,11 @@ class _ItemCardState extends State<_ItemCard> {
                     ),
                 ]),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(s['oil_title'], style: small),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Wrap(spacing: 6, children: [
-                for (final o in const ['none', 'normal', 'high'])
+                for (final o in ['none', 'normal', 'high'])
                   ChoiceChip(
                     label: Text(s['oil_$o']),
                     selected: item.oil == o,
@@ -664,11 +664,11 @@ class _ItemCardState extends State<_ItemCard> {
   }
 
   Widget _badge(String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
             color: AppColors.lavenderSoft.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(6)),
-        child: Text(text, style: const TextStyle(fontSize: 11)),
+        child: Text(text, style: TextStyle(fontSize: 11)),
       );
 
   Widget _portionBtn(String label, double mult) => InkWell(
@@ -678,11 +678,11 @@ class _ItemCardState extends State<_ItemCard> {
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
               color: AppColors.lavenderSoft.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(10)),
-          child: Text(label, style: const TextStyle(fontSize: 11)),
+          child: Text(label, style: TextStyle(fontSize: 11)),
         ),
       );
 }

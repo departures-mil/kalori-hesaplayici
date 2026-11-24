@@ -50,7 +50,7 @@ class DiaryScreenState extends State<DiaryScreen> {
       context: context,
       initialDate: _day,
       firstDate: DateTime(2024),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: DateTime.now().add(Duration(days: 1)),
     );
     if (d != null) {
       setState(() => _day = d);
@@ -101,19 +101,19 @@ class DiaryScreenState extends State<DiaryScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: Row(
             children: [
               IconButton(
                   onPressed: () => _shift(-1),
-                  icon: const Icon(Icons.chevron_left_rounded)),
+                  icon: Icon(Icons.chevron_left_rounded)),
               Expanded(
                 child: InkWell(
                   onTap: _pickDate,
                   child: Column(
                     children: [
                       Text(isToday ? s['today'] : df.format(_day),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 16)),
                       if (isToday)
                         Text(df.format(_day),
@@ -124,7 +124,7 @@ class DiaryScreenState extends State<DiaryScreen> {
               ),
               IconButton(
                   onPressed: () => _shift(1),
-                  icon: const Icon(Icons.chevron_right_rounded)),
+                  icon: Icon(Icons.chevron_right_rounded)),
             ],
           ),
         ),
@@ -132,7 +132,7 @@ class DiaryScreenState extends State<DiaryScreen> {
           child: RefreshIndicator(
             onRefresh: refresh,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 32),
               children: [
                 SoftCard(
                   child: Row(
@@ -145,11 +145,11 @@ class DiaryScreenState extends State<DiaryScreen> {
                                 style:
                                     Theme.of(context).textTheme.bodySmall),
                             Text('${total.round()} / $goal ${s['kcal']}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.rose)),
-                            const SizedBox(height: 6),
+                            SizedBox(height: 6),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: LinearProgressIndicator(
@@ -167,13 +167,13 @@ class DiaryScreenState extends State<DiaryScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Column(
                         children: [
-                          const Icon(Icons.water_drop_rounded,
+                          Icon(Icons.water_drop_rounded,
                               color: AppColors.lavender),
                           Text('$_water',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w700)),
                           Text(s['glasses'],
                               style: Theme.of(context).textTheme.bodySmall),
@@ -182,7 +182,7 @@ class DiaryScreenState extends State<DiaryScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -200,14 +200,14 @@ class DiaryScreenState extends State<DiaryScreen> {
                         color: AppColors.fat),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 if (_entries.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    padding: EdgeInsets.symmetric(vertical: 40),
                     child: Column(children: [
-                      const Icon(Icons.restaurant_menu_rounded,
+                      Icon(Icons.restaurant_menu_rounded,
                           size: 56, color: AppColors.lavenderSoft),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text(s['no_entries'],
                           style: Theme.of(context).textTheme.bodySmall),
                     ]),
@@ -215,16 +215,16 @@ class DiaryScreenState extends State<DiaryScreen> {
                 for (final m in MealType.values)
                   if (byMeal.containsKey(m)) ...[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+                      padding: EdgeInsets.fromLTRB(4, 8, 4, 8),
                       child: Row(
                         children: [
                           Text(s[m.name],
                               style:
                                   Theme.of(context).textTheme.titleMedium),
-                          const Spacer(),
+                          Spacer(),
                           Text(
                               '${byMeal[m]!.fold(0.0, (a, e) => a + e.kcal).round()} ${s['kcal']}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.inkSoft)),
                         ],
@@ -261,19 +261,19 @@ class _EntryTile extends StatelessWidget {
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: AlignmentDirectional.centerEnd,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
             color: AppColors.rose, borderRadius: BorderRadius.circular(18)),
-        child: const Icon(Icons.delete_rounded, color: Colors.white),
+        child: Icon(Icons.delete_rounded, color: Colors.white),
       ),
       onDismissed: (_) => onDelete(),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: EdgeInsets.only(bottom: 10),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: SoftCard(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             child: Row(
               children: [
                 ClipRRect(
@@ -292,7 +292,7 @@ class _EntryTile extends StatelessWidget {
                                 color: AppColors.rose)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,14 +301,14 @@ class _EntryTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
+                              TextStyle(fontWeight: FontWeight.w600)),
                       Text(DateFormat.Hm().format(entry.time),
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
                 Text('${entry.kcal.round()} ${s['kcal']}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.w800, color: AppColors.rose)),
               ],
             ),

@@ -56,7 +56,7 @@ class _AccuracyCardState extends State<AccuracyCard> {
           controller: c,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: '26', suffixText: 'cm'),
+          decoration: InputDecoration(hintText: '26', suffixText: 'cm'),
         ),
         actions: [
           TextButton(
@@ -87,20 +87,20 @@ class _AccuracyCardState extends State<AccuracyCard> {
           // plate size
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.circle_outlined, color: AppColors.rose),
+            leading: Icon(Icons.circle_outlined, color: AppColors.rose),
             title: Text(s['plate_setting']),
             subtitle: Text(st.plateCm > 0
                 ? '${st.plateCm} cm'
                 : s['plate_setting_sub']),
-            trailing: const Icon(Icons.edit_rounded),
+            trailing: Icon(Icons.edit_rounded),
             onTap: () => _plate(s),
           ),
-          const Divider(),
+          Divider(),
           // learning
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             secondary:
-                const Icon(Icons.auto_graph_rounded, color: AppColors.lavender),
+                Icon(Icons.auto_graph_rounded, color: AppColors.lavender),
             title: Text(s['learn_title']),
             subtitle:
                 Text(s.f('learn_sub', {'n': learner.learnedCount})),
@@ -118,21 +118,21 @@ class _AccuracyCardState extends State<AccuracyCard> {
                   setState(() {});
                   showSnack(context, s['learn_reset_done']);
                 },
-                icon: const Icon(Icons.restart_alt_rounded),
+                icon: Icon(Icons.restart_alt_rounded),
                 label: Text(s['learn_reset']),
               ),
             ),
-          const Divider(),
+          Divider(),
           // offline model
           Row(children: [
-            const Icon(Icons.memory_rounded, color: AppColors.mint),
-            const SizedBox(width: 16),
+            Icon(Icons.memory_rounded, color: AppColors.mint),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(s['model_title'],
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   Text(
                       _installed == true
                           ? s['model_ready']
@@ -159,27 +159,27 @@ class _AccuracyCardState extends State<AccuracyCard> {
                       child: Text(s['model_download'])),
           ]),
           if (prog != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             LinearProgressIndicator(
                 value: prog.fraction, color: AppColors.rose, minHeight: 6),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
                 '${(prog.fraction * 100).round()}%  •  '
                 '${DownloadProgress.mb(prog.received)} / ${DownloadProgress.mb(prog.total)}  •  '
                 '${s['remaining']}: ${DownloadProgress.mb(prog.remaining)}  •  ${prog.speedText}',
                 style: small),
           ],
-          const Divider(),
+          Divider(),
           // tables
           Row(children: [
-            const Icon(Icons.menu_book_rounded, color: AppColors.carbs),
-            const SizedBox(width: 16),
+            Icon(Icons.menu_book_rounded, color: AppColors.carbs),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(s['db_title'],
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   Text(
                       s.f('db_sub', {
                         'a': FoodDb.instance.foods.length,

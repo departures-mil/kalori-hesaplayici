@@ -50,7 +50,7 @@ class StatsScreenState extends State<StatsScreen> {
         title: Text(s['add_weight']),
         content: TextField(
             controller: c,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(labelText: s['weight_kg'])),
         actions: [
           TextButton(
@@ -94,7 +94,7 @@ class StatsScreenState extends State<StatsScreen> {
         1.15;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
         Row(
           children: [
@@ -107,7 +107,7 @@ class StatsScreenState extends State<StatsScreen> {
                 refresh();
               },
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             ChoiceChip(
               label: Text(s['month']),
               selected: _days == 30,
@@ -117,14 +117,14 @@ class StatsScreenState extends State<StatsScreen> {
                 refresh();
               },
             ),
-            const Spacer(),
+            Spacer(),
             Text('${s['average']}: ${avg.round()} ${s['kcal']}',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ],
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         SoftCard(
-          padding: const EdgeInsets.fromLTRB(8, 20, 16, 8),
+          padding: EdgeInsets.fromLTRB(8, 20, 16, 8),
           child: SizedBox(
             height: 220,
             child: BarChart(
@@ -134,7 +134,7 @@ class StatsScreenState extends State<StatsScreen> {
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (g, gi, rod, ri) => BarTooltipItem(
                       '${rod.toY.round()} ${s['kcal']}',
-                      const TextStyle(
+                      TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -154,14 +154,14 @@ class StatsScreenState extends State<StatsScreen> {
                       dashArray: [6, 4]),
                 ]),
                 titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(),
-                  rightTitles: const AxisTitles(),
+                  topTitles: AxisTitles(),
+                  rightTitles: AxisTitles(),
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
                         getTitlesWidget: (v, _) => Text('${v.round()}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 10, color: AppColors.inkSoft))),
                   ),
                   bottomTitles: AxisTitles(
@@ -170,17 +170,17 @@ class StatsScreenState extends State<StatsScreen> {
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
                         if (i < 0 || i >= series.length) {
-                          return const SizedBox();
+                          return SizedBox();
                         }
-                        if (_days == 30 && i % 5 != 0) return const SizedBox();
+                        if (_days == 30 && i % 5 != 0) return SizedBox();
                         final d = series[i].day;
                         return Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: 4),
                           child: Text(
                             _days == 7
                                 ? DateFormat.E(lang).format(d)
                                 : DateFormat.d(lang).format(d),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 10, color: AppColors.inkSoft),
                           ),
                         );
@@ -209,33 +209,33 @@ class StatsScreenState extends State<StatsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Row(
           children: [
             Expanded(
                 child: _stat(s['history_total'], '${_life['n'] ?? 0}',
                     Icons.list_alt_rounded, AppColors.lavender)),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
                 child: _stat(s['days_tracked'], '${_life['days'] ?? 0}',
                     Icons.calendar_month_rounded, AppColors.rose)),
           ],
         ),
-        const SizedBox(height: 22),
+        SizedBox(height: 22),
         Row(
           children: [
             Text(s['weight_log'],
                 style: Theme.of(context).textTheme.titleLarge),
-            const Spacer(),
+            Spacer(),
             TextButton.icon(
                 onPressed: _addWeight,
-                icon: const Icon(Icons.add),
+                icon: Icon(Icons.add),
                 label: Text(s['add_weight'])),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         SoftCard(
-          padding: const EdgeInsets.fromLTRB(8, 20, 16, 8),
+          padding: EdgeInsets.fromLTRB(8, 20, 16, 8),
           child: SizedBox(
             height: 180,
             child: _weights.length < 2
@@ -244,18 +244,18 @@ class StatsScreenState extends State<StatsScreen> {
                         style: Theme.of(context).textTheme.bodySmall))
                 : LineChart(
                     LineChartData(
-                      gridData: const FlGridData(drawVerticalLine: false),
+                      gridData: FlGridData(drawVerticalLine: false),
                       borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(),
-                        rightTitles: const AxisTitles(),
+                        topTitles: AxisTitles(),
+                        rightTitles: AxisTitles(),
                         leftTitles: AxisTitles(
                           sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 40,
                               getTitlesWidget: (v, _) => Text(
                                   v.toStringAsFixed(0),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 10,
                                       color: AppColors.inkSoft))),
                         ),
@@ -266,14 +266,14 @@ class StatsScreenState extends State<StatsScreen> {
                             getTitlesWidget: (v, _) {
                               final i = v.toInt();
                               if (i < 0 || i >= _weights.length) {
-                                return const SizedBox();
+                                return SizedBox();
                               }
                               return Padding(
-                                padding: const EdgeInsets.only(top: 4),
+                                padding: EdgeInsets.only(top: 4),
                                 child: Text(
                                     DateFormat.Md(lang)
                                         .format(_weights[i].key),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 10,
                                         color: AppColors.inkSoft)),
                               );
@@ -290,7 +290,7 @@ class StatsScreenState extends State<StatsScreen> {
                           isCurved: true,
                           color: AppColors.rose,
                           barWidth: 3,
-                          dotData: const FlDotData(show: true),
+                          dotData: FlDotData(show: true),
                           belowBarData: BarAreaData(
                               show: true,
                               color: AppColors.rose.withValues(alpha: 0.12)),
@@ -309,12 +309,12 @@ class StatsScreenState extends State<StatsScreen> {
         child: Row(
           children: [
             Icon(icon, color: color),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 20, fontWeight: FontWeight.w800)),
                 Text(label, style: Theme.of(context).textTheme.bodySmall),
               ],
