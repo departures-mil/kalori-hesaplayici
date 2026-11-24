@@ -189,7 +189,7 @@ Because the user confirmed the food, always set "is_food": true and use confiden
       if (best == null || err.priority > best!.priority) best = err;
     }
 
-    // The key typed in Settings first, then the one bundled with the app.
+    // Only the user's own key (nothing is bundled with the app).
     for (final key in s.geminiKeys) {
       for (final model in geminiModels) {
         try {
@@ -258,15 +258,8 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     if (s.geminiKeys.isEmpty) {
       out['Gemini'] = AiError(AiErrorKind.noKey, 'Gemini', '');
     } else {
-      final manual = s.manualGeminiKey;
-      if (manual.isNotEmpty) {
-        await run('Gemini (elle)',
-            () => _geminiRaw(manual, geminiModels.first, p, null));
-      }
-      if (kBundledGeminiKey.isNotEmpty && kBundledGeminiKey != manual) {
-        await run('Gemini (app)',
-            () => _geminiRaw(kBundledGeminiKey, geminiModels.first, p, null));
-      }
+      await run('Gemini',
+          () => _geminiRaw(s.geminiKey, geminiModels.first, p, null));
     }
     if (s.openAiKey.isEmpty) {
       out['OpenAI'] = AiError(AiErrorKind.noKey, 'OpenAI', '');

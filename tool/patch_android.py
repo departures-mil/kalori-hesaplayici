@@ -26,49 +26,56 @@ if 'android:usesCleartextTraffic' not in m:
 open(mf, "w", encoding="utf-8").write(m)
 
 # ---------- build.gradle(.kts) ----------
+# İmza bilgileri DOSYAYA YAZILMAZ; Gradle derleme anında ortam değişkenlerinden okur:
+#   KALORI_KEYSTORE (yol), KALORI_STORE_PASS, KALORI_KEY_PASS, KALORI_KEY_ALIAS
+# Hiçbir varsayılan şifre yoktur. Değişkenler yoksa sürüm APK'sı debug anahtarıyla
+# imzalanır (yalnız dal derlemesi / deneme; CI yayın işi imzasız ya da debug APK yayınlamaz).
 kts = os.path.join(android, "app", "build.gradle.kts")
 groovy = os.path.join(android, "app", "build.gradle")
-ks_path = (os.environ.get("KEYSTORE_PATH") or os.path.join(root, "android-signing", "release.jks")).replace("\\", "/")
-ks_pass = os.environ.get("KEYSTORE_PASSWORD") or "kalori2026"
-ks_alias = os.environ.get("KEY_ALIAS") or "kalori"
 
 if os.path.exists(kts):
     g = open(kts, encoding="utf-8").read()
     g = re.sub(r'minSdk\s*=\s*[^\n]+', 'minSdk = 23', g)
     g = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.departures.kalori"', g)
-    signing = f'''
-    signingConfigs {{
-        create("release") {{
-            storeFile = file("{ks_path}")
-            storePassword = "{ks_pass}"
-            keyAlias = "{ks_alias}"
-            keyPassword = "{ks_pass}"
-        }}
-    }}
+    signing = '''
+    signingConfigs {
+        create("release") {
+            val ks = System.getenv("KALORI_KEYSTORE")
+            if (ks != null && ks.isNotEmpty()) {
+                storeFile = file(ks)
+                storePassword = System.getenv("KALORI_STORE_PASS")
+                keyAlias = System.getenv("KALORI_KEY_ALIAS")
+                keyPassword = System.getenv("KALORI_KEY_PASS")
+            }
+        }
+    }
 '''
     if 'create("release")' not in g:
         g = g.replace("    buildTypes {", signing + "    buildTypes {", 1)
     g = re.sub(r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)',
-               'signingConfig = signingConfigs.getByName("release")', g)
+               'signingConfig = if ((System.getenv("KALORI_KEYSTORE") ?: "").isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")', g)
     open(kts, "w", encoding="utf-8").write(g)
     print("patched build.gradle.kts")
 elif os.path.exists(groovy):
     g = open(groovy, encoding="utf-8").read()
     g = re.sub(r'minSdk(Version)?\s*=?\s*[^\n]+', 'minSdk = 23', g)
     g = re.sub(r'applicationId\s*=?\s*"[^"]+"', 'applicationId = "com.departures.kalori"', g)
-    signing = f'''
-    signingConfigs {{
-        release {{
-            storeFile file("{ks_path}")
-            storePassword "{ks_pass}"
-            keyAlias "{ks_alias}"
-            keyPassword "{ks_pass}"
-        }}
-    }}
+    signing = '''
+    signingConfigs {
+        release {
+            if (System.getenv("KALORI_KEYSTORE")) {
+                storeFile file(System.getenv("KALORI_KEYSTORE"))
+                storePassword System.getenv("KALORI_STORE_PASS")
+                keyAlias System.getenv("KALORI_KEY_ALIAS")
+                keyPassword System.getenv("KALORI_KEY_PASS")
+            }
+        }
+    }
 '''
     if "signingConfigs {" not in g:
         g = g.replace("    buildTypes {", signing + "    buildTypes {", 1)
-    g = re.sub(r'signingConfig\s+signingConfigs\.debug', 'signingConfig signingConfigs.release', g)
+    g = re.sub(r'signingConfig\s+signingConfigs\.debug',
+               'signingConfig System.getenv("KALORI_KEYSTORE") ? signingConfigs.release : signingConfigs.debug', g)
     open(groovy, "w", encoding="utf-8").write(g)
     print("patched build.gradle")
 else:
