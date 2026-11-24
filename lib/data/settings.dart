@@ -129,6 +129,17 @@ class Settings extends ChangeNotifier {
   bool get welcomed => _p.getBool('welcomed') ?? false;
   set welcomed(bool v) => _p.setBool('welcomed', v);
 
+  /// v1.0.11: the user's own plate diameter in cm (0 = not set).
+  int get plateCm => _p.getInt('plateCm') ?? 0;
+  set plateCm(int v) {
+    _p.setInt('plateCm', v);
+    notifyListeners();
+  }
+
+  /// Last size reference chosen in the "what's on the plate" sheet.
+  String get lastRef => _p.getString('lastRef') ?? 'none';
+  set lastRef(String v) => _p.setString('lastRef', v);
+
   int get foodsVersion => _p.getInt('foodsVersion') ?? 0;
   set foodsVersion(int v) => _p.setInt('foodsVersion', v);
 }
