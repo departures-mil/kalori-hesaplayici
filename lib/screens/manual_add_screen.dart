@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/settings.dart';
 import '../l10n/strings.dart';
 import '../services/food_db.dart';
+import '../services/nutrition_db.dart';
 import '../widgets/common.dart';
 import 'result_screen.dart';
 
@@ -20,6 +21,107 @@ class ManualAddScreen extends StatefulWidget {
 
 class _ManualAddScreenState extends State<ManualAddScreen> {
   String _q = '';
+
+  @override
+  void initState() {
+    super.initState();
+    NutritionDb.instance.load().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// Asks how much: number + unit (gram, portion, slice, ladle, spoon…).
+  Future<double?> _amount(String title, double portion,
+      Map<String, double> units) async {
+    final s = S.of(context);
+    final opts = <String, double>{'portion': portion, ...units, 'g': 1};
+    var unit = 'portion';
+    final ctrl = TextEditingController(text: '1');
+    return showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (c) => StatefulBuilder(builder: (c, set) {
+        final n = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
+        final g = n * (opts[unit] ?? 1);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+              20, 16, 20, 20 + MediaQuery.of(c).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(labelText: s['amount']),
+                onChanged: (_) => set(() {}),
+              ),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 4, children: [
+                for (final e in opts.entries)
+                  ChoiceChip(
+                    label: Text(e.key == 'g'
+                        ? s['unit_g']
+                        : '${s['unit_${e.key}']} (${e.value.round()} g)'),
+                    selected: unit == e.key,
+                    selectedColor: AppColors.roseSoft,
+                    onSelected: (_) => set(() {
+                      if (e.key == 'g' && unit != 'g') {
+                        ctrl.text = '${g.round()}';
+                      } else if (e.key != 'g' && unit == 'g') {
+                        ctrl.text = '1';
+                      }
+                      unit = e.key;
+                    }),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              Text('= ${g.round()} g',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: g > 0 ? () => Navigator.pop(c, g) : null,
+                child: Text(s['ok']),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Future<void> _pickFood(Food f, String lang) async {
+    final g = await _amount(f.name(lang), f.portion, FoodDb.defaultUnits(f));
+    if (g == null || !mounted) return;
+    _choose(FoodItem.fromFood(f, lang, grams: g.roundToDouble())
+      ..confirmed = true);
+  }
+
+  Future<void> _pickUsda(UsdaFood u) async {
+    final units = <String, double>{};
+    final g = await _amount(u.desc, u.householdG > 0 ? u.householdG : 100, units);
+    if (g == null || !mounted) return;
+    _choose(FoodItem(
+      name: u.desc,
+      nameEn: u.desc,
+      grams: g.roundToDouble(),
+      kcalPer100: u.kcal,
+      proteinPer100: u.protein,
+      carbsPer100: u.carbs,
+      fatPer100: u.fat,
+      dataSource: 'usda',
+      confirmed: true,
+    ));
+  }
 
   Future<void> _choose(FoodItem item) async {
     if (widget.pickOnly) {
@@ -87,6 +189,9 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
     final s = S.of(context);
     final lang = Settings.instance.lang;
     final list = FoodDb.instance.search(_q, lang);
+    final usda = _q.trim().length >= 3
+        ? NutritionDb.instance.search(_q)
+        : const <UsdaFood>[];
     return Scaffold(
       appBar: AppBar(title: Text(s['manual_add'])),
       body: Column(
@@ -104,14 +209,44 @@ class _ManualAddScreenState extends State<ManualAddScreen> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              itemCount: list.length,
+              itemCount: list.length + (usda.isEmpty ? 0 : usda.length + 1),
               itemBuilder: (_, i) {
+                if (i >= list.length) {
+                  final j = i - list.length;
+                  if (j == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                      child: Text(s['usda_section'],
+                          style: Theme.of(context).textTheme.titleSmall),
+                    );
+                  }
+                  final u = usda[j - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _pickUsda(u),
+                      child: SoftCard(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        child: Row(children: [
+                          Expanded(
+                              child: Text(u.desc,
+                                  style: const TextStyle(fontSize: 13))),
+                          const SizedBox(width: 8),
+                          Text('${u.kcal.round()} ${s['kcal']}/100 g',
+                              style: Theme.of(context).textTheme.bodySmall),
+                        ]),
+                      ),
+                    ),
+                  );
+                }
                 final f = list[i];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () => _choose(FoodItem.fromFood(f, lang)),
+                    onTap: () => _pickFood(f, lang),
                     child: SoftCard(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
