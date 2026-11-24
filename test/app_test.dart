@@ -233,8 +233,11 @@ void main() {
         return 'sent';
       };
       FcCrash.now = () => DateTime(2026, 11, 24, 12);
-      expect(await FcCrash.report(StateError('a'), StackTrace.current), isTrue);
-      expect(await FcCrash.report(StateError('a'), StackTrace.current), isFalse); // aynı imza
+      final st = StackTrace.current;
+      expect(await FcCrash.report(StateError('a'), st), isTrue);
+      expect(await FcCrash.report(StateError('a'), st), isFalse); // aynı imza
+      expect(FcCrash.signature('E: x', '#0 f (a.dart:1:2)\n#1 g (b.dart:3:4)'),
+          FcCrash.signature('E: x', '#0 f (a.dart:9:9)\n#1 g (b.dart:7:7)'));
       for (var i = 0; i < 6; i++) {
         await FcCrash.report(StateError('hata $i x'), null);
       }
