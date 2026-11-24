@@ -10,6 +10,7 @@ import 'screens/diary_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/stats_screen.dart';
+import 'services/fc_agent.dart';
 import 'services/food_db.dart';
 import 'services/food_model.dart';
 import 'services/nutrition_db.dart';
@@ -25,6 +26,15 @@ Future<void> main() async {
   NutritionDb.instance.load(); // USDA table, in the background
   FoodModel.instance.autoDownload(); // offline food model, Wi‑Fi only
   await initializeDateFormatting();
+  await FcAgent.instance.init(
+    app: 'kalori-hesaplayici',
+    version: '1.0.12',
+    lang: () => Settings.instance.lang,
+    ai: () {
+      final k = Settings.instance.manualGeminiKey; // yalnız kullanıcının KENDİ anahtarı
+      return k.isEmpty ? null : {'provider': 'gemini', 'key': k};
+    },
+  );
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
@@ -42,6 +52,7 @@ class KaloriApp extends StatelessWidget {
       builder: (context, _) => MaterialApp(
         title: 'Kalori Hesaplayıcı',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: FcAgent.messengerKey,
         theme: buildTheme(),
         locale: Locale(Settings.instance.lang),
         supportedLocales: S.supported,
@@ -171,13 +182,17 @@ class _ShellState extends State<Shell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
-        actions: const [AnnouncementBell(), WindowControls()],
+        actions: const [FcAgentButton(), AnnouncementBell(), WindowControls()],
       ),
-      body: IndexedStack(index: _index, children: pages),
+      body: Listener(
+        onPointerDown: (_) => FcAgent.instance.input(),
+        child: IndexedStack(index: _index, children: pages),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) {
           setState(() => _index = i);
+          FcAgent.instance.track(titles[i]);
           if (i == 1) _diaryKey.currentState?.refresh();
           if (i == 2) _statsKey.currentState?.refresh();
         },
