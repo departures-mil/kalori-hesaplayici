@@ -27,7 +27,7 @@ concurrency:
 
 env:
   FLUTTER_VERSION: 3.35.x
-  # v1.0.2–v1.0.12 APK'larını imzalayan sertifika (SHA-256). Değiştirmeyin.
+  # v1.0.9–v1.0.12 APK'larını imzalayan sertifika (SHA-256). Değiştirmeyin.
   EXPECTED_CERT: 4e01b6f6cf5c82153bf4baccd12e8e1ec45256d9f30187b071f9dceecf3fad66
 
 jobs:
@@ -67,6 +67,39 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]] && [ "v$v" != "$GITHUB_REF_NAME" ]; then
             echo "::error::etiket $GITHUB_REF_NAME ≠ pubspec v$v"; exit 1
           fi
+
+  # Ekran görüntüleri (yalnız entegrasyon dallarında): gerçek yazı tipleriyle çizilip "ci-ekran" dalına konur.
+  ekran:
+    needs: test
+    if: startsWith(github.ref, 'refs/heads/ortak-cekirdek-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: sudo apt-get install -y -q libsqlite3-dev >/dev/null
+      - run: python3 tool/gen_data.py
+      - run: flutter pub get
+      - name: Ekranları çiz
+        run: |
+          set +e
+          SCREENS=1 flutter test test/screens_test.dart --file-reporter json:/tmp/s.json
+          st=$?
+          python3 tool/ci_annotate.py test /tmp/s.json
+          ls -la build/screens || true
+          exit $st
+      - name: ci-ekran dalına gönder
+        if: always()
+        run: |
+          [ -d build/screens ] || exit 0
+          cd build/screens
+          git init -q -b ci-ekran
+          git -c user.name=ci -c user.email=ci@localhost add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -q -m "ekranlar ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-ekran
 
   build:
     needs: test
@@ -137,7 +170,7 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "signed=true" >> "$GITHUB_OUTPUT"
       - run: flutter pub get
-      # Hiçbir yapay zekâ anahtarı derlemeye verilmez (--dart-define yok); her kullanıcı kendi anahtarını girer.
+      # Hiçbir yapay zekâ anahtarı derlemeye verilmez (derleme tanımı yok); her kullanıcı kendi anahtarını girer.
       - name: APK derle
         run: flutter build apk --release --build-number=$(grep -E '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
       - name: İmza sertifikasını doğrula

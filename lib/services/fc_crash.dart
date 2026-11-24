@@ -69,7 +69,7 @@ class FcCrash {
         .split('\n')
         .where((l) => l.trim().isNotEmpty)
         .take(2)
-        .map((l) => l.trim().replaceAll(RegExp(r':\d+(:\d+)?\)?$'), ''))
+        .map((l) => l.trim().replaceAll(RegExp(r'[: ]\d+(:\d+)?\)?'), '').replaceAll(RegExp(r'\s+'), ' '))
         .join('|');
     return _hash('${sanitize(msg, 300)}|$frames');
   }
