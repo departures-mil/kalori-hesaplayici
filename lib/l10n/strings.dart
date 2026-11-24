@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'strings_v11.dart';
+
 /// Lightweight localization: tr / en / ar.
 class S {
   final String code;
@@ -12,7 +14,12 @@ class S {
 
   bool get isRtl => code == 'ar';
 
-  String operator [](String key) => _m[code]![key] ?? _m['en']![key] ?? key;
+  String operator [](String key) =>
+      _m[code]![key] ??
+      kStringsV11[code]?[key] ??
+      _m['en']![key] ??
+      kStringsV11['en']?[key] ??
+      key;
 
   String f(String key, Map<String, Object> args) {
     var s = this[key];
