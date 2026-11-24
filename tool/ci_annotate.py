@@ -38,6 +38,8 @@ def test(path):
             continue
         if e.get("type") == "testStart":
             names[e["test"]["id"]] = e["test"]["name"]
+        elif e.get("type") == "print" and "testID" in e:
+            errors.setdefault(e["testID"], []).append(e.get("message", "")[:1500])
         elif e.get("type") == "error":
             errors.setdefault(e["testID"], []).append(e.get("error", "") + "\n" + e.get("stackTrace", "")[:600])
         elif e.get("type") == "testDone" and e.get("result") != "success" and not e.get("hidden"):
