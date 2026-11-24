@@ -45,9 +45,9 @@ class LookPicker extends StatelessWidget {
             SegmentedButton<String>(
               showSelectedIcon: false,
               segments: [
-                ButtonSegment(value: 'dark', label: Text(s['mode_dark']), icon: const Icon(Icons.dark_mode_rounded, size: 18)),
-                ButtonSegment(value: 'light', label: Text(s['mode_light']), icon: const Icon(Icons.light_mode_rounded, size: 18)),
-                ButtonSegment(value: 'auto', label: Text(s['mode_auto']), icon: const Icon(Icons.brightness_auto_rounded, size: 18)),
+                ButtonSegment(value: 'dark', label: Text(s['mode_dark'])),
+                ButtonSegment(value: 'light', label: Text(s['mode_light'])),
+                ButtonSegment(value: 'auto', label: Text(s['mode_auto'])),
               ],
               selected: {look.theme},
               onSelectionChanged: (v) => look.setTheme(v.first),
