@@ -149,6 +149,8 @@ class _AccuracyCardState extends State<AccuracyCard> {
                       onPressed: () => _model.delete(),
                       child: Text(s['model_delete']))
                   : FilledButton(
+                      // v1.1.0: satır içinde sonsuz genişlik hatası (tema minimumSize tam genişlik) düzeltildi
+                      style: FilledButton.styleFrom(minimumSize: const Size(90, 44)),
                       onPressed: () async {
                         final ok = await _model.download();
                         if (!ok && context.mounted) {
