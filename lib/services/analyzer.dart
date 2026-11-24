@@ -6,6 +6,7 @@ import '../data/models.dart';
 import 'ai_error.dart';
 import 'offline_analyzer.dart';
 import 'online_analyzer.dart';
+import 'portion_learner.dart';
 
 enum AnalysisStage { online, offline }
 
@@ -19,17 +20,18 @@ class Analyzer {
   static Future<AnalysisResult> analyze(
     File file,
     String lang, {
-    String? hint,
+    PlateInput input = const PlateInput(),
     void Function(AnalysisStage)? onStage,
   }) async {
-    final h = (hint ?? '').trim().isEmpty ? null : hint!.trim();
+    final h = input.hint.trim().isEmpty ? null : input.hint.trim();
     String? note;
     AiError? err;
     if (await isOnline()) {
       onStage?.call(AnalysisStage.online);
       try {
-        final r = await OnlineAnalyzer.analyze(file, lang, hint: h);
+        final r = await OnlineAnalyzer.analyze(file, lang, input: input);
         if (r != null) {
+          PortionLearner.instance.apply(r.items, userListed: h != null);
           return AnalysisResult(
             items: r.items,
             source: r.source,
@@ -48,6 +50,7 @@ class Analyzer {
     }
     onStage?.call(AnalysisStage.offline);
     final r = await OfflineAnalyzer.analyze(file, lang, hint: h);
+    PortionLearner.instance.apply(r.items, userListed: h != null);
     return AnalysisResult(
       items: r.items,
       source: r.source,
