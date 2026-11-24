@@ -42,6 +42,9 @@ ThemeData buildTheme({String lang = 'tr'}) {
     error: p.danger,
   );
   final ink = p.text;
+  // Bileşen metin stilleri yazı tipini textTheme'den almaz; Inter / Noto Sans Arabic açıkça verilir.
+  final ff = fontFor(lang);
+  final fb = fontFallbackFor(lang);
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
@@ -67,7 +70,7 @@ ThemeData buildTheme({String lang = 'tr'}) {
       foregroundColor: ink,
       centerTitle: false,
       titleTextStyle:
-          TextStyle(fontWeight: FontWeight.w700, color: ink, fontSize: 18, fontFamily: fontFor(lang)),
+          TextStyle(fontWeight: FontWeight.w700, color: ink, fontSize: 18, fontFamily: ff, fontFamilyFallback: fb),
     ),
     cardTheme: CardThemeData(
       color: p.panel,
@@ -92,7 +95,7 @@ ThemeData buildTheme({String lang = 'tr'}) {
         backgroundColor: p.accent,
         foregroundColor: p.onAccent,
         minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        textStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, fontFamily: ff, fontFamilyFallback: fb),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
@@ -101,18 +104,25 @@ ThemeData buildTheme({String lang = 'tr'}) {
         foregroundColor: p.accent,
         minimumSize: const Size.fromHeight(52),
         side: BorderSide(color: p['accent-line'], width: 1.5),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        textStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, fontFamily: ff, fontFamilyFallback: fb),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: p.accent),
+      style: TextButton.styleFrom(
+          foregroundColor: p.accent,
+          textStyle: TextStyle(fontWeight: FontWeight.w600, fontFamily: ff, fontFamilyFallback: fb)),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.w600, fontFamily: ff, fontFamilyFallback: fb)),
+      ),
     ),
     chipTheme: ChipThemeData(
       backgroundColor: p.panel,
       selectedColor: p['active-1'],
       side: BorderSide(color: p.border),
-      labelStyle: TextStyle(color: ink),
+      labelStyle: TextStyle(color: ink, fontFamily: ff, fontFamilyFallback: fb),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -133,11 +143,11 @@ ThemeData buildTheme({String lang = 'tr'}) {
       surfaceTintColor: Colors.transparent,
       indicatorColor: p['active-1'],
       labelTextStyle: WidgetStateProperty.all(
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ink)),
+          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ink, fontFamily: ff, fontFamilyFallback: fb)),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: p['toast-bg'],
-      contentTextStyle: TextStyle(color: p['toast-text']),
+      contentTextStyle: TextStyle(color: p['toast-text'], fontFamily: ff, fontFamilyFallback: fb),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),

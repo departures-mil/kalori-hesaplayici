@@ -71,7 +71,9 @@ class _AnnouncementBellState extends State<AnnouncementBell> {
       if (o != null) _isle(jsonDecode(o) as List, goster: false);
     } catch (_) {}
     await Future<void>.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
     await _yenile();
+    if (!mounted) return; // kapanmış widget için zamanlayıcı kurma
     _zaman = Timer.periodic(const Duration(minutes: 30), (_) => _yenile());
   }
 
