@@ -107,8 +107,11 @@ if os.path.exists(t):
     os.remove(t)
 print("done")
 
-# ---------- analiz sonuçlarını CI özetinde görünür yaz ----------
+# ---------- v1.0.11: nutrition data (foods / USDA / offline model labels) ----------
 import subprocess
+subprocess.call([sys.executable, os.path.join(root, "tool", "gen_data.py")])
+
+# ---------- analiz sonuçlarını CI özetinde görünür yaz ----------
 try:
     subprocess.run(["flutter", "pub", "get"], cwd=root, check=False, capture_output=True)
     r = subprocess.run(["flutter", "analyze", "--no-fatal-infos", "--no-fatal-warnings"],
