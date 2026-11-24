@@ -6,6 +6,7 @@ import '../l10n/strings.dart';
 import '../services/ai_error.dart';
 import '../services/online_analyzer.dart';
 import '../services/update_service.dart';
+import '../widgets/accuracy_card.dart';
 import '../widgets/common.dart';
 import '../widgets/usage_card.dart';
 import '../widgets/window_controls.dart';
@@ -193,6 +194,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        _section(s['accuracy_title']),
+        const AccuracyCard(),
         _section(s['update']),
         SoftCard(
           child: Row(
