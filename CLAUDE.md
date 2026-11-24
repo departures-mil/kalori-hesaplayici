@@ -23,7 +23,7 @@ Android projesi depoda yok: CI `flutter create` ile üretir, `tool/patch_android
   `lib/data/news.dart` (en üste), `release-notes.json`. `flutter test` tutarlılığı denetler.
 - İmza: yalnız secret'lar `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS`, `ANDROID_KEY_PASS`, `ANDROID_KEY_ALIAS`
   (geçiş için eski `KEYSTORE_BASE64`/`KEYSTORE_PASSWORD`/`KEY_ALIAS` da okunur). Varsayılan şifre/geçici anahtar YOK.
-  CI, APK sertifikasını `EXPECTED_CERT` (v1.0.2+ anahtarı) ile karşılaştırır; farklıysa yayın olmaz.
+  CI, APK sertifikasını `EXPECTED_CERT` (v1.0.9–v1.0.12 APK anahtarı) ile karşılaştırır; farklıysa yayın olmaz.
 - Kullanıcıya APK dosyası gönderme; güncelleme uygulamanın içinden.
 
 ## Yayın
