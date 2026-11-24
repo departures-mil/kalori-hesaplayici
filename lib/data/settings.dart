@@ -1,12 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// v1.0.8: Uygulamaya yöneticinin anahtarı GÖMÜLMEZ — herkes kendi ücretsiz
-/// anahtarını girer (yöneticinin yapay zekâ kotası başkalarınca harcanmasın).
-/// Derlemedeki --dart-define değerleri bilerek kullanılmıyor.
-const kBundledGeminiKey = '';
-const kBundledOpenAiKey = '';
-const kBundledClaudeKey = '';
+// Uygulamaya HİÇBİR yapay zekâ anahtarı gömülmez (v1.1.0: derlemeden de
+// kaldırıldı). Her kullanıcı kendi anahtarını ilk açılışta ya da Ayarlar'da girer.
 
 const kGithubOwner = 'departures-mil';
 const kGithubRepo = 'kalori-hesaplayici';
@@ -88,19 +84,14 @@ class Settings extends ChangeNotifier {
 
   int get dailyGoal => customGoal ?? calculatedGoal;
 
-  String get geminiKey {
-    final v = _p.getString('geminiKey') ?? '';
-    return v.isNotEmpty ? v : kBundledGeminiKey;
-  }
+  /// Kullanıcının kendi Gemini anahtarı (boş olabilir).
+  String get geminiKey => _p.getString('geminiKey') ?? '';
 
   /// Key typed by the user in Settings (may be empty).
   String get manualGeminiKey => _p.getString('geminiKey') ?? '';
 
-  /// Keys to try, in order: the user's own key, then the bundled one.
-  List<String> get geminiKeys => [
-        for (final k in {manualGeminiKey, kBundledGeminiKey})
-          if (k.isNotEmpty) k,
-      ];
+  /// Denenecek Gemini anahtarları: yalnızca kullanıcının kendi anahtarı.
+  List<String> get geminiKeys => [if (geminiKey.isNotEmpty) geminiKey];
 
   void clearKeys() {
     _p.remove('geminiKey');
@@ -109,15 +100,9 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
-  String get openAiKey {
-    final v = _p.getString('openAiKey') ?? '';
-    return v.isNotEmpty ? v : kBundledOpenAiKey;
-  }
+  String get openAiKey => _p.getString('openAiKey') ?? '';
 
-  String get claudeKey {
-    final v = _p.getString('claudeKey') ?? '';
-    return v.isNotEmpty ? v : kBundledClaudeKey;
-  }
+  String get claudeKey => _p.getString('claudeKey') ?? '';
 
   void setKeys({String? gemini, String? openAi, String? claude}) {
     if (gemini != null) _p.setString('geminiKey', gemini.trim());

@@ -46,43 +46,44 @@ jobs:
           rm -rf lib assets pubspec.yaml analysis_options.yaml
           cp -r /tmp/keep/. .
           rm -f test/widget_test.dart
-          KEYSTORE_PATH=/tmp/release.jks python3 tool/patch_android.py
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          python3 tool/patch_android.py
 
+      # İmza: yalnızca GitHub secret'ları. Geçici anahtar ÜRETİLMEZ, varsayılan şifre YOKTUR.
+      # Yeni adlar (tüm depolarda aynı): ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASS,
+      # ANDROID_KEY_PASS, ANDROID_KEY_ALIAS. Eski ad KEYSTORE_BASE64 yalnızca anahtar dosyası için okunur.
       - name: Signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 || secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS || secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.KEY_ALIAS }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release.jks
-            echo "Using keystore from secrets"
-          else
-            echo "::warning::KEYSTORE_BASE64 secret missing - generating a temporary key (in-app updates will not install over older builds)"
-            keytool -genkeypair -keystore /tmp/release.jks -storepass "${KEYSTORE_PASSWORD:-kalori2026}" \
-              -keypass "${KEYSTORE_PASSWORD:-kalori2026}" -alias "${KEY_ALIAS:-kalori}" -keyalg RSA -keysize 2048 -validity 36500 \
-              -dname "CN=Kalori Hesaplayici, O=departures-mil, C=TR"
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::İmza secret'ları eksik (ANDROID_KEYSTORE_B64 + ANDROID_KEYSTORE_PASS). Yayın yapılmadı."
+            exit 1
           fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          if [ -z "$KEY_ALIAS" ]; then
+            KEY_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KS_PASS" 2>/dev/null | grep -m1 PrivateKeyEntry | cut -d, -f1)
+          fi
+          [ -n "$KEY_ALIAS" ] || { echo "::error::Anahtar adı (alias) bulunamadı"; exit 1; }
+          {
+            echo "KALORI_KEYSTORE=$RUNNER_TEMP/release.jks"
+            echo "KALORI_STORE_PASS=$KS_PASS"
+            echo "KALORI_KEY_PASS=${KEY_PASS:-$KS_PASS}"
+            echo "KALORI_KEY_ALIAS=$KEY_ALIAS"
+          } >> "$GITHUB_ENV"
 
       - name: Dependencies
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: flutter analyze --no-fatal-infos
 
+      # Hiçbir yapay zekâ anahtarı derlemeye verilmez (--dart-define yok).
       - name: Build APK
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         run: |
-          flutter build apk --release \
-            --dart-define=GEMINI_API_KEY="$GEMINI_API_KEY" \
-            --dart-define=OPENAI_API_KEY="$OPENAI_API_KEY" \
-            --dart-define=CLAUDE_API_KEY="$CLAUDE_API_KEY"
+          flutter build apk --release
           mkdir -p out
           cp build/app/outputs/flutter-apk/app-release.apk "out/KaloriHesaplayici-v${{ steps.ver.outputs.version }}.apk"
           ls -la out
