@@ -11,6 +11,9 @@ import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/stats_screen.dart';
 import 'services/food_db.dart';
+import 'services/food_model.dart';
+import 'services/nutrition_db.dart';
+import 'services/portion_learner.dart';
 import 'widgets/announcements.dart';
 import 'widgets/window_controls.dart';
 
@@ -18,6 +21,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Settings.instance.init();
   await FoodDb.instance.load();
+  await PortionLearner.instance.init();
+  NutritionDb.instance.load(); // USDA table, in the background
+  FoodModel.instance.autoDownload(); // offline food model, Wi‑Fi only
   await initializeDateFormatting();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
