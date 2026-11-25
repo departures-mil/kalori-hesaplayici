@@ -272,8 +272,13 @@ class StatsScreenState extends State<StatsScreen> {
             height: 180,
             child: _weights.length < 2
                 ? Center(
-                    child: Text(s['no_entries'],
-                        style: Theme.of(context).textTheme.bodySmall))
+                    child: SingleChildScrollView(
+                      child: EmptyState(
+                          icon: Icons.monitor_weight_outlined,
+                          title: s['st_weight_empty'],
+                          action: s['add_weight'],
+                          onAction: _addWeight),
+                    ))
                 : LineChart(
                     LineChartData(
                       gridData: FlGridData(drawVerticalLine: false),

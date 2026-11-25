@@ -16,6 +16,15 @@ Android projesi depoda yok: CI `flutter create` ile üretir, `tool/patch_android
   Ayarlar sırası: Görünüm … Kullanım Limitleri, Asistan Agent, Hata raporu, Arşiv, **Admin ile iletişim EN SON**.
 - Wi‑Fi eşitleme (`lan_sync.dart`, `db.dart mergeAll`): kalıcı silme yok (deleted=1 → Arşiv), ezilen yerel hâl `cakisma` tablosuna.
 
+## 1.1.1 eklemeleri
+- `services/text_entry.dart` (yazarak/sesle: önce kullanıcının anahtarıyla `OnlineAnalyzer.parseText`, yoksa cihazda ayrıştırma),
+  `screens/quick_text_screen.dart`, `saved_screen.dart` (favoriler / sık / tarifler), `recipe_screen.dart`, `cycle_screen.dart`.
+- DB v4: `saved` (fav / recipe, uid) ve `period` (adet başlangıçları) tabloları; ikisi de `exportAll/mergeAll` ile eşitlenir, kalıcı silme yok.
+- `services/native_bridge.dart` ↔ `kalori/app` kanalı: speech, notifPermission, reminders, widget, saveDoc/openDoc (Drive yedeği), dynamicColors.
+  Kotlin tarafı (`KaloriAlarms`, `ReminderReceiver`, `BootReceiver`, `KaloriWidget`) ve widget kaynakları `tool/patch_android.py` içinde üretilir.
+- APK küçültme: `abiFilters` = armeabi-v7a + arm64-v8a (patch_android.py).
+- Yeni metinler `lib/l10n/strings_v12.dart` (üç dilde aynı anahtarlar; test denetler).
+
 ## Kurallar (Milen)
 - Yazışma dili Türkçe; arayüz tr/en/ar (ar sağdan sola). Yeni metin: `lib/l10n/strings_fc.dart` üç dilde (test denetler).
 - Yapay zekâ: her kullanıcı KENDİ anahtarını girer (ilk açılış rehberi + Ayarlar). Sahibin anahtarı ASLA gömülmez, `--dart-define` yok.
