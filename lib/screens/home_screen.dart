@@ -340,7 +340,7 @@ class HomeScreenState extends State<HomeScreen> {
             ),
           ],
           SizedBox(height: 22),
-          Text(s['analyze_photo'],
+          Text(s['home_add'],
               style: Theme.of(context).textTheme.titleLarge),
           SizedBox(height: 12),
           GridView.count(
