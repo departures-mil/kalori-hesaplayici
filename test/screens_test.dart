@@ -97,7 +97,7 @@ void main() {
       await _shot(t, '$name-1b-ana-alt');
       await t.tap(find.byIcon(Icons.bar_chart_outlined));
       await _shot(t, '$name-1c-istatistik');
-      await t.drag(find.byType(ListView).at(2), const Offset(0, -900), warnIfMissed: false);
+      await t.drag(find.byType(ListView).first, const Offset(0, -900), warnIfMissed: false);
       await _shot(t, '$name-1d-istatistik-alt');
       await t.tap(find.byIcon(Icons.settings_outlined));
       await _shot(t, '$name-2-ayarlar');

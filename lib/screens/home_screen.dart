@@ -288,11 +288,14 @@ class HomeScreenState extends State<HomeScreen> {
                           Icon(Icons.water_drop_rounded,
                               color: Colors.white, size: 20),
                           SizedBox(width: 4),
-                          Text('$_water / ${Settings.instance.waterGoal} ${s['glasses']}',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600)),
-                          Spacer(),
+                          Expanded(
+                            child: Text('$_water/${Settings.instance.waterGoal} ${s['glasses']}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600)),
+                          ),
                           _waterBtn(Icons.remove, () => _addWater(-1), s['wt_less']),
                           SizedBox(width: 6),
                           _waterBtn(Icons.add, () => _addWater(1), s['wt_more']),
