@@ -168,8 +168,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   obscureText: true,
                   decoration: InputDecoration(labelText: s['claude_key'])),
               SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 8,
                 children: [
                 OutlinedButton.icon(
                   onPressed: _testAi,
@@ -178,7 +181,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icon(Icons.wifi_tethering_rounded, size: 18),
                   label: Text(s['ai_test']),
                 ),
-                SizedBox(width: 10),
                 IconButton(
                   tooltip: s['clear_keys'],
                   onPressed: () {
@@ -191,7 +193,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   icon: Icon(Icons.delete_sweep_rounded),
                 ),
-                SizedBox(width: 4),
                 FilledButton(
                   onPressed: () {
                     st.setKeys(

@@ -4,6 +4,7 @@
 const Map<String, Map<String, String>> kStringsV12 = {
   'tr': {
     // ilk açılış
+    'home_add': 'Yemek ekle',
     'onb_f_photo': 'Fotoğraftan kalori',
     'onb_f_voice': 'Yazarak ya da sesle ekle',
     'onb_f_barcode': 'Barkod okuma',
@@ -147,7 +148,7 @@ const Map<String, Map<String, String>> kStringsV12 = {
     'rm_water_body': 'Bir bardak su içip uygulamaya ekle.',
     'rm_weigh_title': 'Tartılma zamanı',
     'rm_weigh_body': 'Kilonu kaydet; grafiğin güncel kalsın.',
-    'wg_hint': 'Ana ekrana "Bugün kalan kalori" widget\'ı ekleyebilirsin: ana ekrana uzun bas → Widget\'lar → Kalori Hesaplayıcı.',
+    'wg_hint': 'Ana ekrana "Bugün kalan kalori" widget\'ı ekleyebilirsin: ana ekrana uzun bas > Widget\'lar > Kalori Hesaplayıcı.',
     // yedekleme
     'bk_title': 'Yedekleme (Google Drive)',
     'bk_desc': 'Bütün kayıtlarını (günlük, su, kilo, favoriler, tarifler, döngü) tek dosya olarak kendi Google Drive\'ına ya da telefona kaydet. Geri yüklerken hiçbir kayıt silinmez; aynı kayıtta en yeni olan kalır.',
@@ -165,6 +166,7 @@ const Map<String, Map<String, String>> kStringsV12 = {
     'look_system': 'Sistem (Material You)',
   },
   'en': {
+    'home_add': 'Add food',
     'onb_f_photo': 'Calories from a photo',
     'onb_f_voice': 'Add by typing or voice',
     'onb_f_barcode': 'Barcode scanning',
@@ -299,7 +301,7 @@ const Map<String, Map<String, String>> kStringsV12 = {
     'rm_water_body': 'Drink a glass of water and add it in the app.',
     'rm_weigh_title': 'Time to weigh in',
     'rm_weigh_body': 'Log your weight to keep your chart up to date.',
-    'wg_hint': 'You can add a "Calories left today" widget: long-press the home screen → Widgets → Calorie Counter.',
+    'wg_hint': 'You can add a "Calories left today" widget: long-press the home screen > Widgets > Calorie Counter.',
     'bk_title': 'Backup (Google Drive)',
     'bk_desc': 'Save all your records (diary, water, weight, favourites, recipes, cycle) as one file to your own Google Drive or to the phone. Restoring never deletes anything; for the same record the newest one is kept.',
     'bk_export': 'Back up',
@@ -315,6 +317,7 @@ const Map<String, Map<String, String>> kStringsV12 = {
     'look_system': 'System (Material You)',
   },
   'ar': {
+    'home_add': 'إضافة طعام',
     'onb_f_photo': 'السعرات من صورة',
     'onb_f_voice': 'الإضافة بالكتابة أو بالصوت',
     'onb_f_barcode': 'قراءة الباركود',
@@ -449,7 +452,7 @@ const Map<String, Map<String, String>> kStringsV12 = {
     'rm_water_body': 'اشربي كوب ماء وأضيفيه في التطبيق.',
     'rm_weigh_title': 'حان وقت الوزن',
     'rm_weigh_body': 'سجّلي وزنك ليبقى الرسم البياني محدّثاً.',
-    'wg_hint': 'يمكنك إضافة أداة «السعرات المتبقية اليوم»: اضغطي مطولاً على الشاشة الرئيسية ← الأدوات ← حاسبة السعرات.',
+    'wg_hint': 'يمكنك إضافة أداة «السعرات المتبقية اليوم»: اضغطي مطولاً على الشاشة الرئيسية > الأدوات > حاسبة السعرات.',
     'bk_title': 'النسخ الاحتياطي (Google Drive)',
     'bk_desc': 'احفظي جميع سجلاتك (اليوميات، الماء، الوزن، المفضلة، الوصفات، الدورة) في ملف واحد على Google Drive الخاص بك أو على الهاتف. لا يحذف الاسترجاع أي سجل؛ ويُبقى الأحدث للسجل نفسه.',
     'bk_export': 'نسخ احتياطي',
