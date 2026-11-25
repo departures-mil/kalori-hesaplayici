@@ -10,8 +10,8 @@ import '../core/app_info.dart';
 /// Ortak çekirdek FC.contact'ın Dart karşılığı — tek admin gelen kutusu (SPEC.md):
 /// Firestore `comm-calc-103111111/mesajlar` (yalnız ekleme), tüm alanlar stringValue:
 /// tur, uygulama, surum, platform, dil, mesaj, iletisim (isteğe bağlı), zaman (ISO), cihaz.
-/// Gönderilemeyen mesaj yerel kuyruğa alınır ve sonra yeniden denenir. Yedek: FormSubmit
-/// (yalnız kullanıcı mesajlarında; çökme raporları e-postaya gitmez).
+/// Gönderilemeyen mesaj yerel kuyruğa alınır ve sonra yeniden denenir.
+/// Programda hiçbir kişisel e-posta adresi bulunmaz (yedek e-posta yolu yok).
 class FcContact {
   static const _inbox =
       'https://firestore.googleapis.com/v1/projects/comm-calc-103111111/databases/(default)/documents/mesajlar?key=AIzaSyB12RFS6ENPpmnnPsETfjedNH-3hmNWQvA';
@@ -23,9 +23,6 @@ class FcContact {
 
   /// Testler için değiştirilebilir.
   static http.Client Function() client = http.Client.new;
-
-  static String _to() => String.fromCharCodes(
-      utf8.decode(base64.decode('')).codeUnits.reversed);
 
   /// Rastgele, anonim cihaz kimliği (18 hex).
   static Future<String> deviceId() async {
@@ -78,44 +75,8 @@ class FcContact {
     }
   }
 
-  static Future<bool> _mail(Map<String, String> f) async {
-    final body = <String, String>{
-      '_subject': '${f['uygulama']}: ${f['tur']}',
-      '_template': 'table',
-      '_captcha': 'false',
-      'Tur': f['tur']!,
-      'Mesaj': f['mesaj']!,
-      'Uygulama': f['uygulama']!,
-      'Surum': f['surum']!,
-      'Platform': f['platform']!,
-      'Dil': f['dil']!,
-      'Cihaz': f['cihaz']!,
-    };
-    final il = f['iletisim'];
-    if (il != null) {
-      body['Iletisim'] = il;
-      if (il.contains('@')) body['_replyto'] = il;
-    }
-    final c = client();
-    try {
-      final r = await c
-          .post(Uri.parse('https://formsubmit.co/ajax/${_to()}'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Referer': 'https://formsubmit.co/',
-                'Origin': 'https://formsubmit.co',
-              },
-              body: jsonEncode(body))
-          .timeout(const Duration(seconds: 30));
-      final j = jsonDecode(r.body);
-      return j is Map && '${j['success']}' == 'true';
-    } catch (_) {
-      return false;
-    } finally {
-      c.close();
-    }
-  }
+  /// Yedek e-posta yolu kaldırıldı: programda hiçbir kişisel adres bulunmaz; mesaj kuyrukta bekler.
+  static Future<bool> _mail(Map<String, String> f) async => false;
 
   static Future<bool> _deliver(Map<String, dynamic> item) async {
     final f = Map<String, String>.from(item['f'] as Map);
