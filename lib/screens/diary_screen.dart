@@ -84,6 +84,70 @@ class DiaryScreenState extends State<DiaryScreen> {
     }
   }
 
+  /// 1.1.1: kayda uzun basınca — favorilere ekle / bugüne kopyala / sil.
+  Future<void> _entryMenu(DiaryEntry e) async {
+    final s = S.of(context);
+    final isToday = AppDb.dayKey(_day) == AppDb.dayKey(DateTime.now());
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
+        ListTile(
+            title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700))),
+        ListTile(
+            leading: Icon(Icons.star_rounded, color: AppColors.rose),
+            title: Text(s['sv_add_fav']),
+            onTap: () => Navigator.pop(c, 'fav')),
+        ListTile(
+            leading: Icon(Icons.content_copy_rounded, color: AppColors.lavender),
+            title: Text(isToday ? s['cp_again'] : s['cp_to_today']),
+            onTap: () => Navigator.pop(c, 'copy')),
+        ListTile(
+            leading: Icon(Icons.edit_rounded, color: AppColors.inkSoft),
+            title: Text(s['rc_edit']),
+            onTap: () => Navigator.pop(c, 'edit')),
+        ListTile(
+            leading: Icon(Icons.delete_outline_rounded, color: AppColors.rose),
+            title: Text(s['sv_remove']),
+            onTap: () => Navigator.pop(c, 'del')),
+        const SizedBox(height: 8),
+      ]),
+    );
+    if (!mounted || v == null) return;
+    switch (v) {
+      case 'fav':
+        await AppDb.instance.saveSaved(SavedMeal(
+            kind: 'fav',
+            name: e.items.map((i) => i.name).take(3).join(', '),
+            items: e.items.map((i) => FoodItem.fromJson(i.toJson())..confirmed = true).toList()));
+        if (mounted) showSnack(context, s['sv_fav_saved']);
+      case 'copy':
+        await AppDb.instance.insertEntry(DiaryEntry(
+            time: DateTime.now(),
+            meal: e.meal,
+            items: e.items.map((i) => FoodItem.fromJson(i.toJson())).toList(),
+            source: AnalysisSource.manual,
+            note: e.note));
+        if (mounted) showSnack(context, s['added']);
+        await refresh();
+        widget.onChanged();
+      case 'edit':
+        await _edit(e);
+      case 'del':
+        await _delete(e);
+    }
+  }
+
+  /// 1.1.1: geçmiş bir günün öğününü bugüne kopyala.
+  Future<void> _copyMeal(MealType m) async {
+    final s = S.of(context);
+    final n = await AppDb.instance.copyMeal(_day, m);
+    if (!mounted) return;
+    showSnack(context, s.f('cp_done', {'n': n}));
+    widget.onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
@@ -105,6 +169,7 @@ class DiaryScreenState extends State<DiaryScreen> {
           child: Row(
             children: [
               IconButton(
+                  tooltip: s['dy_prev'],
                   onPressed: () => _shift(-1),
                   icon: Icon(Icons.chevron_left_rounded)),
               Expanded(
@@ -123,6 +188,7 @@ class DiaryScreenState extends State<DiaryScreen> {
                 ),
               ),
               IconButton(
+                  tooltip: s['dy_next'],
                   onPressed: () => _shift(1),
                   icon: Icon(Icons.chevron_right_rounded)),
             ],
@@ -202,15 +268,10 @@ class DiaryScreenState extends State<DiaryScreen> {
                 ),
                 SizedBox(height: 16),
                 if (_entries.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Column(children: [
-                      Icon(Icons.restaurant_menu_rounded,
-                          size: 56, color: AppColors.lavenderSoft),
-                      SizedBox(height: 10),
-                      Text(s['no_entries'],
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ]),
+                  EmptyState(
+                    icon: Icons.restaurant_menu_rounded,
+                    title: s['no_entries'],
+                    text: s['dy_empty_hint'],
                   ),
                 for (final m in MealType.values)
                   if (byMeal.containsKey(m)) ...[
@@ -227,12 +288,21 @@ class DiaryScreenState extends State<DiaryScreen> {
                               style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.inkSoft)),
+                          if (!isToday)
+                            IconButton(
+                              tooltip: s['cp_to_today'],
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _copyMeal(m),
+                              icon: Icon(Icons.content_copy_rounded,
+                                  size: 18, color: AppColors.lavender),
+                            ),
                         ],
                       ),
                     ),
                     ...byMeal[m]!.map((e) => _EntryTile(
                           entry: e,
                           onTap: () => _edit(e),
+                          onLongPress: () => _entryMenu(e),
                           onDelete: () => _delete(e),
                         )),
                   ],
@@ -248,9 +318,13 @@ class DiaryScreenState extends State<DiaryScreen> {
 class _EntryTile extends StatelessWidget {
   final DiaryEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
   final VoidCallback onDelete;
   const _EntryTile(
-      {required this.entry, required this.onTap, required this.onDelete});
+      {required this.entry,
+      required this.onTap,
+      required this.onLongPress,
+      required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -271,6 +345,7 @@ class _EntryTile extends StatelessWidget {
         padding: EdgeInsets.only(bottom: 10),
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(18),
           child: SoftCard(
             padding: EdgeInsets.all(12),

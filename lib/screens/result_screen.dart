@@ -147,6 +147,32 @@ class _ResultScreenState extends State<ResultScreen> {
     Navigator.pop(context, true);
   }
 
+  /// 1.1.1: bu öğünü favorilere kaydet (adı sorulur).
+  Future<void> _saveFav() async {
+    final s = S.of(context);
+    final c = TextEditingController(text: _all.map((e) => e.name).take(3).join(', '));
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s['sv_add_fav']),
+        content: TextField(
+            controller: c,
+            autofocus: true,
+            decoration: InputDecoration(labelText: s['name'])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s['cancel'])),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(s['save'])),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    await AppDb.instance.saveSaved(SavedMeal(
+        kind: 'fav',
+        name: name,
+        items: _all.map((i) => FoodItem.fromJson(i.toJson())..confirmed = true).toList()));
+    if (mounted) showSnack(context, s['sv_fav_saved']);
+  }
+
   Future<void> _reanalyze() async {
     if (imagePath == null) return;
     setState(() => _reanalyzing = true);
@@ -197,7 +223,13 @@ class _ResultScreenState extends State<ResultScreen> {
             !i.confirmed && (i.question != null || i.confidence < 0.6))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: Text(s['result'])),
+      appBar: AppBar(title: Text(s['result']), actions: [
+        IconButton(
+          tooltip: s['sv_add_fav'],
+          onPressed: _all.isEmpty ? null : _saveFav,
+          icon: const Icon(Icons.star_border_rounded),
+        ),
+      ]),
       body: ListView(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 120),
         children: [

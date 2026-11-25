@@ -22,9 +22,12 @@ import 'services/food_db.dart';
 import 'services/food_model.dart';
 import 'services/nutrition_db.dart';
 import 'services/portion_learner.dart';
+import 'services/reminders.dart';
 import 'services/update_service.dart';
 import 'widgets/announcements.dart';
+import 'widgets/common.dart';
 import 'widgets/look_picker.dart';
+import 'widgets/profile_form.dart';
 import 'widgets/window_controls.dart';
 
 Future<void> main() async {
@@ -49,6 +52,8 @@ Future<void> main() async {
   );
   unawaited(FcContact.flush()); // gönderilemeyen mesajlar / çökme raporları
   unawaited(UpdateService.cleanup());
+  unawaited(FcLook.instance.loadDynamic()); // Android 12+ Material You renkleri ("Sistem" şeması)
+  unawaited(Reminders.apply()); // hatırlatmalar (güncelleme / yeniden başlatma sonrası da)
   // Renk şeması değişince bütün ekranlar yeni renklerle yeniden çizilir (durum korunur).
   FcLook.instance.addListener(_repaintAll);
   runApp(const KaloriApp());
@@ -107,7 +112,7 @@ class KaloriApp extends StatelessWidget {
   }
 }
 
-/// İlk açılış rehberi: 1) dil  2) görünüm  3) kendi yapay zekâ anahtarı.
+/// İlk açılış rehberi: 1) tanıtım + dil  2) kişisel hedef  3) görünüm  4) kendi yapay zekâ anahtarı.
 class Welcome extends StatefulWidget {
   const Welcome({super.key});
 
@@ -118,11 +123,20 @@ class Welcome extends StatefulWidget {
 class _WelcomeState extends State<Welcome> {
   int _step = 0;
   final _key = TextEditingController();
+  final _profile = GlobalKey<ProfileFormState>();
 
   @override
   void dispose() {
     _key.dispose();
     super.dispose();
+  }
+
+  void _next() {
+    if (_step == 1 && !(_profile.currentState?.save() ?? true)) {
+      showSnack(context, S.of(context)['pf_invalid']);
+      return;
+    }
+    setState(() => _step++);
   }
 
   void _finish() {
@@ -159,7 +173,30 @@ class _WelcomeState extends State<Welcome> {
             style: const TextStyle(color: white, fontSize: 30, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         body(s['welcome_text']),
-        const SizedBox(height: 28),
+        const SizedBox(height: 20),
+        // kısa tanıtım: uygulamanın yaptıkları
+        Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 10, children: [
+          for (final f in const [
+            (Icons.photo_camera_rounded, 'onb_f_photo'),
+            (Icons.mic_rounded, 'onb_f_voice'),
+            (Icons.qr_code_scanner_rounded, 'onb_f_barcode'),
+            (Icons.insights_rounded, 'onb_f_report'),
+          ])
+            Container(
+              width: 140,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                  color: white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(16)),
+              child: Column(children: [
+                Icon(f.$1, color: white, size: 26),
+                const SizedBox(height: 6),
+                Text(s[f.$2],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+        ]),
+        const SizedBox(height: 24),
         Text(s['onb_lang'], style: const TextStyle(color: white, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         Row(children: [
@@ -183,7 +220,17 @@ class _WelcomeState extends State<Welcome> {
             ),
         ]),
       ]),
-      // 2) görünüm
+      // 2) kişisel hedef (Mifflin-St Jeor)
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.flag_rounded, size: 54, color: white),
+        const SizedBox(height: 16),
+        title(s['pf_title']),
+        const SizedBox(height: 10),
+        body(s['pf_text']),
+        const SizedBox(height: 16),
+        ProfileForm(key: _profile, onGradient: true),
+      ]),
+      // 3) görünüm
       Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.palette_rounded, size: 54, color: white),
         const SizedBox(height: 16),
@@ -198,7 +245,7 @@ class _WelcomeState extends State<Welcome> {
           child: const LookPicker(compact: true),
         ),
       ]),
-      // 3) kendi yapay zekâ anahtarı
+      // 4) kendi yapay zekâ anahtarı
       Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.key_rounded, size: 54, color: white),
         const SizedBox(height: 16),
@@ -237,7 +284,17 @@ class _WelcomeState extends State<Welcome> {
               child: Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
-                  child: pages[_step],
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutCubic,
+                    transitionBuilder: (c, a) => FadeTransition(
+                      opacity: a,
+                      child: SlideTransition(
+                          position: Tween(begin: const Offset(0.06, 0), end: Offset.zero).animate(a),
+                          child: c),
+                    ),
+                    child: KeyedSubtree(key: ValueKey(_step), child: pages[_step]),
+                  ),
                 ),
               ),
             ),
@@ -245,7 +302,8 @@ class _WelcomeState extends State<Welcome> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Row(children: [
                 for (var i = 0; i < pages.length; i++)
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
                     width: i == _step ? 22 : 8,
                     height: 8,
                     margin: const EdgeInsetsDirectional.only(end: 6),
@@ -272,7 +330,7 @@ class _WelcomeState extends State<Welcome> {
                       backgroundColor: white,
                       foregroundColor: FcLook.instance.palette.gradient.first,
                       minimumSize: const Size(110, 48)),
-                  onPressed: last ? _finish : () => setState(() => _step++),
+                  onPressed: last ? _finish : _next,
                   child: Text(last ? s['onb_done'] : s['onb_next']),
                 ),
               ]),
@@ -291,15 +349,29 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WidgetsBindingObserver {
   int _index = 0;
   final _homeKey = GlobalKey<HomeScreenState>();
   final _diaryKey = GlobalKey<DiaryScreenState>();
   final _statsKey = GlobalKey<StatsScreenState>();
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// 1.1.1: uygulamaya dönünce (gün değişmiş olabilir) ekranlar ve widget yenilenir.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshAll();
+    if (state == AppLifecycleState.paused) unawaited(Reminders.pushToday());
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await showWhatsNew(context); // güncellemeden sonraki ilk açılışta

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/native_bridge.dart';
 import 'fc_tokens.dart';
 
 /// Ortak çekirdek FC.look'un Flutter karşılığı: renk şeması (falcon varsayılan,
@@ -38,8 +39,24 @@ class FcLook extends ChangeNotifier with WidgetsBindingObserver {
   String? _dbgScheme, _dbgTheme;
   double? _dbgScale;
 
+  /// 1.1.1: Android 12+ duvar kâğıdı renkleri (Material You). Yoksa null.
+  static Map<String, int>? dynamicArgb;
+  static const systemScheme = 'sistem';
+  bool get hasDynamic => dynamicArgb != null;
+
+  /// Şemalar: ortak çekirdeğin 8 şeması + (destekleniyorsa) "Sistem".
+  List<String> get schemeIds => [if (hasDynamic) systemScheme, ...kFcSchemeIds];
+
+  Future<void> loadDynamic() async {
+    final m = await NativeBridge.dynamicColors();
+    if (m == null || !m.containsKey('a1_600')) return;
+    dynamicArgb = m;
+    _changed();
+  }
+
   String get scheme {
     final s = _dbgScheme ?? _p?.getString('fc.scheme');
+    if (s == systemScheme && hasDynamic) return s!;
     return kFcSchemeIds.contains(s) ? s! : 'falcon';
   }
 
@@ -58,7 +75,7 @@ class FcLook extends ChangeNotifier with WidgetsBindingObserver {
   FcPalette get palette => _palette;
 
   void setScheme(String id) {
-    if (!kFcSchemeIds.contains(id)) return;
+    if (!kFcSchemeIds.contains(id) && !(id == systemScheme && hasDynamic)) return;
     _p?.setString('fc.scheme', id);
     _dbgScheme = null;
     _changed();
@@ -104,8 +121,32 @@ class FcPalette {
   final String scheme;
   final bool dark;
   final Map<String, Color> _t;
-  FcPalette(this.scheme, this.dark)
-      : _t = kFcTokens[scheme]![dark ? 'dark' : 'light']!;
+  FcPalette(this.scheme, this.dark) : _t = _tokens(scheme, dark);
+
+  static Map<String, Color> _tokens(String scheme, bool dark) {
+    final mode = dark ? 'dark' : 'light';
+    final d = FcLook.dynamicArgb;
+    if (scheme != FcLook.systemScheme || d == null) return kFcTokens[scheme]![mode]!;
+    // "Sistem": falcon tabanı + duvar kâğıdından gelen vurgu renkleri
+    Color c(String k, int fb) => Color(d[k] ?? fb);
+    final base = Map<String, Color>.from(kFcTokens['falcon']![mode]!);
+    final accent = dark ? c('a1_200', 0xFFA8C7FA) : c('a1_600', 0xFF3367D6);
+    final accent2 = dark ? c('a3_200', 0xFFD7BAFF) : c('a3_600', 0xFF7E57C2);
+    base.addAll({
+      'accent': accent,
+      'accent-2': accent2,
+      'on-accent': dark ? c('a1_800', 0xFF062E6F) : const Color(0xFFFFFFFF),
+      'primary-1': c('a1_600', 0xFF3367D6),
+      'primary-2': c('a3_600', 0xFF7E57C2),
+      'focus': accent,
+      'active-1': accent.withValues(alpha: 0.16),
+      'accent-soft': accent.withValues(alpha: 0.14),
+      'accent-line': accent.withValues(alpha: 0.4),
+      'bg': dark ? c('n1_900', 0xFF1B1B1F) : c('n1_10', 0xFFFDFBFF),
+      'panel-solid': dark ? c('n1_800', 0xFF2F3033) : c('n1_50', 0xFFF1F0F4),
+    });
+    return base;
+  }
 
   Color operator [](String token) => _t[token] ?? const Color(0xFFFF00FF);
 

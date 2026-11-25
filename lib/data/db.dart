@@ -18,10 +18,11 @@ class AppDb {
     final dir = await getApplicationDocumentsDirectory();
     _db = await openDatabase(
       p.join(dir.path, 'kalori.db'),
-      version: 3,
+      version: 4,
       onUpgrade: (d, from, to) async {
         if (from < 2) await _v2(d);
         if (from < 3) await _v3(d);
+        if (from < 4) await _v4(d);
       },
       onCreate: (d, v) async {
         await d.execute('''
@@ -48,6 +49,7 @@ class AppDb {
         await d.execute('''
           CREATE TABLE products(barcode TEXT PRIMARY KEY, json TEXT NOT NULL)''');
         await _v3(d);
+        await _v4(d);
       },
     );
     return _db!;
@@ -78,6 +80,27 @@ class AppDb {
         anahtar TEXT NOT NULL,
         json TEXT NOT NULL,
         zaman INTEGER NOT NULL)''');
+  }
+
+  /// v4 (1.1.1): favoriler / tarifler (`saved`) ve adet döngüsü başlangıçları (`period`).
+  /// İkisi de eşitlenir; kalıcı silme yok (deleted=1).
+  static Future<void> _v4(Database d) async {
+    await d.execute('''
+      CREATE TABLE IF NOT EXISTS saved(
+        uid TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        items TEXT NOT NULL,
+        servings REAL NOT NULL DEFAULT 1,
+        cooked REAL NOT NULL DEFAULT 0,
+        uses INTEGER NOT NULL DEFAULT 0,
+        updated INTEGER NOT NULL DEFAULT 0,
+        deleted INTEGER NOT NULL DEFAULT 0)''');
+    await d.execute('''
+      CREATE TABLE IF NOT EXISTS period(
+        day TEXT PRIMARY KEY,
+        updated INTEGER NOT NULL DEFAULT 0,
+        deleted INTEGER NOT NULL DEFAULT 0)''');
   }
 
   static final _rnd = Random.secure();
@@ -220,6 +243,122 @@ class AppDb {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  // ---------------- 1.1.1: raporlar, favoriler, tarifler, döngü ----------------
+
+  /// [from] ile [to] (dahil) arasındaki günlük kayıtlar.
+  Future<List<DiaryEntry>> entriesBetween(DateTime from, DateTime to) async {
+    final d = await db;
+    final rows = await d.query('entries',
+        where: 'day >= ? AND day <= ? AND deleted = 0',
+        whereArgs: [dayKey(from), dayKey(to)],
+        orderBy: 'time ASC');
+    return rows.map(_row).toList();
+  }
+
+  /// Gün → bardak.
+  Future<Map<String, int>> waterBetween(DateTime from, DateTime to) async {
+    final d = await db;
+    final rows = await d.query('water',
+        where: 'day >= ? AND day <= ?', whereArgs: [dayKey(from), dayKey(to)]);
+    return {for (final r in rows) r['day'] as String: r['glasses'] as int};
+  }
+
+  /// Son [days] günde en sık eklenen yiyecekler (ad + son kullanılan porsiyon).
+  Future<List<(FoodItem, int)>> frequentItems({int days = 90, int limit = 20}) async {
+    final now = DateTime.now();
+    final list = await entriesBetween(now.subtract(Duration(days: days)), now);
+    final count = <String, int>{};
+    final last = <String, FoodItem>{};
+    for (final e in list) {
+      for (final i in e.items) {
+        final k = i.name.trim().toLowerCase();
+        if (k.isEmpty) continue;
+        count[k] = (count[k] ?? 0) + 1;
+        last[k] = i; // listede zamana göre sıralı: sonuncusu en yeni
+      }
+    }
+    final keys = count.keys.toList()..sort((a, b) => count[b]!.compareTo(count[a]!));
+    return [
+      for (final k in keys.take(limit))
+        (FoodItem.fromJson(last[k]!.toJson())..confirmed = true, count[k]!)
+    ];
+  }
+
+  /// Bir günün bir öğününü bugüne (şimdiki saatle) kopyalar. Eklenen kayıt sayısı.
+  Future<int> copyMeal(DateTime fromDay, MealType meal, {DateTime? to}) async {
+    final src = (await entriesForDay(fromDay)).where((e) => e.meal == meal).toList();
+    final when = to ?? DateTime.now();
+    for (final e in src) {
+      await insertEntry(DiaryEntry(
+        time: when,
+        meal: meal,
+        items: e.items.map((i) => FoodItem.fromJson(i.toJson())).toList(),
+        source: AnalysisSource.manual,
+        note: e.note,
+      ));
+    }
+    return src.length;
+  }
+
+  Future<List<SavedMeal>> savedList(String kind) async {
+    final d = await db;
+    final rows = await d.query('saved',
+        where: 'kind = ? AND deleted = 0', whereArgs: [kind], orderBy: 'uses DESC, updated DESC');
+    return rows.map(SavedMeal.fromRow).toList();
+  }
+
+  Future<String> saveSaved(SavedMeal m) async {
+    final d = await db;
+    final uid = m.uid ?? newUid();
+    await d.insert(
+        'saved',
+        {
+          ...m.toRow(),
+          'uid': uid,
+          'updated': _now(),
+          'deleted': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
+    return uid;
+  }
+
+  Future<void> useSaved(String uid) async {
+    final d = await db;
+    await d.rawUpdate('UPDATE saved SET uses = uses + 1 WHERE uid = ?', [uid]);
+  }
+
+  /// Yumuşak silme (Arşiv'den geri getirilebilir, eşitlemede silindi olarak gider).
+  Future<void> removeSaved(String uid) async {
+    final d = await db;
+    await d.update('saved', {'deleted': 1, 'updated': _now()},
+        where: 'uid = ?', whereArgs: [uid]);
+  }
+
+  Future<List<SavedMeal>> archivedSaved() async {
+    final d = await db;
+    final rows = await d.query('saved', where: 'deleted = 1', orderBy: 'updated DESC');
+    return rows.map(SavedMeal.fromRow).toList();
+  }
+
+  Future<void> restoreSaved(String uid) async {
+    final d = await db;
+    await d.update('saved', {'deleted': 0, 'updated': _now()},
+        where: 'uid = ?', whereArgs: [uid]);
+  }
+
+  /// Adet başlangıç günleri (eskiden yeniye).
+  Future<List<DateTime>> periodStarts() async {
+    final d = await db;
+    final rows = await d.query('period', where: 'deleted = 0', orderBy: 'day ASC');
+    return rows.map((r) => DateTime.parse(r['day'] as String)).toList();
+  }
+
+  Future<void> setPeriodStart(DateTime day, bool on) async {
+    final d = await db;
+    await d.insert('period', {'day': dayKey(day), 'updated': _now(), 'deleted': on ? 0 : 1},
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   // ---------------- Wi-Fi eşitleme ----------------
 
   /// Arşiv: silinen (ya da öbür cihazda silinip burada arşivlenen) kayıtlar.
@@ -265,6 +404,8 @@ class AppDb {
       ],
       'water': await d.query('water'),
       'weight': await d.query('weight'),
+      'saved': await d.query('saved'),
+      'period': await d.query('period'),
     };
   }
 
@@ -308,12 +449,13 @@ class AppDb {
             break;
         }
       }
-      for (final table in const ['water', 'weight']) {
+      for (final table in const ['water', 'weight', 'period', 'saved']) {
+        final keyCol = table == 'saved' ? 'uid' : 'day';
         for (final raw in (j[table] as List? ?? const [])) {
           final r = Map<String, dynamic>.from(raw as Map);
-          final day = r['day'] as String?;
-          if (day == null) continue;
-          final mine = await tx.query(table, where: 'day = ?', whereArgs: [day]);
+          final day = r[keyCol] as String?;
+          if (day == null || day.isEmpty) continue;
+          final mine = await tx.query(table, where: '$keyCol = ?', whereArgs: [day]);
           final ru = (r['updated'] as num?)?.toInt() ?? 0;
           switch (mergeDecision(
               exists: mine.isNotEmpty,
@@ -321,10 +463,10 @@ class AppDb {
               theirsUpdated: ru)) {
             case MergeAction.insert:
               await tx.insert(table, r);
-              added++;
+              if (r['deleted'] != 1) added++;
             case MergeAction.backupAndReplace:
               await _backup(tx, table, day, mine.first);
-              await tx.update(table, r, where: 'day = ?', whereArgs: [day]);
+              await tx.update(table, r, where: '$keyCol = ?', whereArgs: [day]);
               updated++;
             case MergeAction.keep:
               break;

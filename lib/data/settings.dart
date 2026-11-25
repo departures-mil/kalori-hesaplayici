@@ -82,7 +82,14 @@ class Settings extends ChangeNotifier {
     return tdee.clamp(1200, 4000).round();
   }
 
-  int get dailyGoal => customGoal ?? calculatedGoal;
+  /// Güvenli alt sınır: elle girilen hedef de 1200 kcal'nin altına inemez
+  /// (hamilelik / emzirmede 1800).
+  int get minSafeGoal => special == Special.none ? 1200 : 1800;
+  int get dailyGoal {
+    final c = customGoal;
+    if (c == null) return calculatedGoal < minSafeGoal ? minSafeGoal : calculatedGoal;
+    return c < minSafeGoal ? minSafeGoal : c;
+  }
 
   /// Kullanıcının kendi Gemini anahtarı (boş olabilir).
   String get geminiKey => _p.getString('geminiKey') ?? '';
@@ -129,6 +136,85 @@ class Settings extends ChangeNotifier {
   /// Last size reference chosen in the "what's on the plate" sheet.
   String get lastRef => _p.getString('lastRef') ?? 'none';
   set lastRef(String v) => _p.setString('lastRef', v);
+
+  // ---------------- 1.1.1 ----------------
+
+  /// Profil (ilk açılış rehberinde ya da Ayarlar'da) en az bir kez kaydedildi mi.
+  bool get profileSet => _p.getBool('profileSet') ?? false;
+  set profileSet(bool v) {
+    _p.setBool('profileSet', v);
+    notifyListeners();
+  }
+
+  /// Adet döngüsü takibi.
+  bool get cycleOn => _p.getBool('cycleOn') ?? false;
+  set cycleOn(bool v) {
+    _p.setBool('cycleOn', v);
+    notifyListeners();
+  }
+
+  int get cycleLen => _p.getInt('cycleLen') ?? 28;
+  set cycleLen(int v) {
+    _p.setInt('cycleLen', v.clamp(21, 45));
+    notifyListeners();
+  }
+
+  int get periodLen => _p.getInt('periodLen') ?? 5;
+  set periodLen(int v) {
+    _p.setInt('periodLen', v.clamp(2, 10));
+    notifyListeners();
+  }
+
+  /// Günlük su hedefi (bardak, 200 ml). 0 = kiloya göre (35 ml/kg).
+  int get waterGoalRaw => _p.getInt('waterGoal') ?? 0;
+  int get waterGoal {
+    final r = waterGoalRaw;
+    if (r > 0) return r;
+    var ml = weight * 35;
+    if (special == Special.breastfeeding) ml += 700;
+    if (special == Special.pregnant) ml += 300;
+    return (ml / 200).round().clamp(6, 16);
+  }
+
+  set waterGoal(int v) {
+    _p.setInt('waterGoal', v.clamp(0, 30));
+    notifyListeners();
+  }
+
+  /// Makro dağılımı (% kalori): protein / karbonhidrat / yağ.
+  static const macroSplit = (p: 0.20, c: 0.50, f: 0.30);
+  double get proteinTarget => dailyGoal * macroSplit.p / 4;
+  double get carbsTarget => dailyGoal * macroSplit.c / 4;
+  double get fatTarget => dailyGoal * macroSplit.f / 9;
+
+  /// Hatırlatmalar: tür → "SS:DD" (boş = kapalı). JSON yerine düz anahtarlar.
+  static const reminderKinds = ['breakfast', 'lunch', 'dinner', 'snack', 'water', 'weigh'];
+  static const reminderDefaults = {
+    'breakfast': '08:30',
+    'lunch': '12:30',
+    'dinner': '19:00',
+    'snack': '16:00',
+    'water': '10:00',
+    'weigh': '07:30',
+  };
+  bool reminderOn(String k) => _p.getBool('rem.$k') ?? false;
+  String reminderTime(String k) => _p.getString('rem.$k.t') ?? reminderDefaults[k]!;
+  void setReminder(String k, {bool? on, String? time}) {
+    if (on != null) _p.setBool('rem.$k', on);
+    if (time != null) _p.setString('rem.$k.t', time);
+    notifyListeners();
+  }
+
+  /// Su hatırlatması kaç saatte bir (başlangıç saatinden 21:00'e kadar).
+  int get waterEvery => _p.getInt('rem.water.every') ?? 2;
+  set waterEvery(int v) {
+    _p.setInt('rem.water.every', v.clamp(1, 4));
+    notifyListeners();
+  }
+
+  /// Son yedek alma zamanı (ms, 0 = hiç).
+  int get lastBackup => _p.getInt('lastBackup') ?? 0;
+  set lastBackup(int v) => _p.setInt('lastBackup', v);
 
   int get foodsVersion => _p.getInt('foodsVersion') ?? 0;
   set foodsVersion(int v) => _p.setInt('foodsVersion', v);
