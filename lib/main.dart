@@ -287,6 +287,8 @@ class _WelcomeState extends State<Welcome> {
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 320),
                     switchInCurve: Curves.easeOutCubic,
+                    // yalnız yeni sayfa görünür (eskisi üstüne binmez)
+                    layoutBuilder: (current, previous) => current ?? const SizedBox.shrink(),
                     transitionBuilder: (c, a) => FadeTransition(
                       opacity: a,
                       child: SlideTransition(

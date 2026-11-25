@@ -284,6 +284,7 @@ class MacroRing extends StatelessWidget {
                 Text('${value.round()}',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: color)),
                 Text('/ ${target.round()} g',
+                    textDirection: TextDirection.ltr,
                     style: TextStyle(fontSize: 10, color: AppColors.inkSoft)),
               ]),
             ]),
