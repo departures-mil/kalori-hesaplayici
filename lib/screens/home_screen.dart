@@ -468,6 +468,7 @@ class HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 3),
               Text('${v.round()} / ${t.round()} g',
+                  textDirection: TextDirection.ltr,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
             ]),
           ),
