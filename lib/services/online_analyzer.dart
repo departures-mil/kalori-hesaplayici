@@ -229,6 +229,56 @@ Because the user confirmed the food, always set "is_food": true and use confiden
     throw best ?? AiError(AiErrorKind.other, '-', 'empty response');
   }
 
+  /// 1.1.1: "1 kase mercimek çorbası, 2 dilim ekmek" gibi bir cümleden öğün.
+  /// Yalnızca kullanıcının kendi anahtarı; kalori yine yerel tablo / USDA'dan.
+  static Future<AnalysisResult?> parseText(String text, String lang) async {
+    await NutritionDb.instance.load();
+    final s = Settings.instance;
+    final l = _langName(lang);
+    final prompt = '''
+You are a professional dietitian. The user wrote (or dictated) what they ate, in Turkish, English or Arabic:
+<meal>
+$text
+</meal>
+List every food or drink. Convert every amount to edible grams with typical household measures
+(Turkish tea glass 100 ml, water glass 200 ml, soup bowl 300 g, ladle 150-200 g, slice of bread 30 g,
+tablespoon 15 g, teaspoon 5 g, one egg 50 g). If no amount is given, use one usual portion.
+Write "name" in $l. "name_en" is a short English food name, "usda" the closest USDA SR description.
+"cooking": raw, boiled, grilled, baked, stewed or fried. "oil": none, normal or high.
+Nutrition per 100 g is only a fallback: use standard food composition values.
+Respond ONLY with JSON in exactly this shape:
+{"is_food": true, "items": [{"name": "...", "name_en": "...", "usda": "...", "grams": 300, "grams_min": 300, "grams_max": 300, "cooking": "stewed", "oil": "normal", "kcal_per_100g": 60, "protein_per_100g": 3.5, "carbs_per_100g": 9, "fat_per_100g": 1.2, "confidence": 0.9, "question": ""}], "note": ""}''';
+    for (final key in s.geminiKeys) {
+      for (final model in geminiModels) {
+        try {
+          final t = await _geminiRaw(key, model, prompt, null);
+          if (t != null) return _parse(t, model, lang);
+        } catch (e) {
+          final err = toAiError(e, 'Gemini');
+          if (err.kind == AiErrorKind.invalidKey ||
+              err.kind == AiErrorKind.denied ||
+              err.kind == AiErrorKind.region ||
+              err.kind == AiErrorKind.network) {
+            break;
+          }
+        }
+      }
+    }
+    if (s.openAiKey.isNotEmpty) {
+      try {
+        final t = await _openAiRaw(s.openAiKey, prompt, null);
+        if (t != null) return _parse(t, 'gpt-4o-mini', lang);
+      } catch (_) {}
+    }
+    if (s.claudeKey.isNotEmpty) {
+      try {
+        final t = await _claudeRaw(s.claudeKey, prompt, null);
+        if (t != null) return _parse(t, 'claude', lang);
+      } catch (_) {}
+    }
+    return null;
+  }
+
   static AiError toAiError(Object e, String provider) {
     if (e is AiError) return e;
     if (e is TimeoutException) {

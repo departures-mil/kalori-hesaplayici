@@ -6,7 +6,7 @@ import '../core/theme.dart';
 
 class GradientCard extends StatelessWidget {
   final Widget child;
-  final EdgeInsets padding;
+  final EdgeInsetsGeometry padding;
   const GradientCard(
       {super.key, required this.child, this.padding = const EdgeInsets.all(20)});
 
@@ -29,7 +29,7 @@ class GradientCard extends StatelessWidget {
 
 class SoftCard extends StatelessWidget {
   final Widget child;
-  final EdgeInsets padding;
+  final EdgeInsetsGeometry padding;
   final Color? color;
   const SoftCard(
       {super.key,
@@ -189,4 +189,141 @@ void showSnack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(msg)));
+}
+
+/// 1.1.1: boş ekranlar için ortak görünüm (yumuşak daire içinde simge, başlık,
+/// açıklama, isteğe bağlı düğme). Hafif bir belirme animasyonuyla gelir.
+class EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? text;
+  final String? action;
+  final VoidCallback? onAction;
+  const EmptyState(
+      {super.key, required this.icon, required this.title, this.text, this.action, this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, child) => Opacity(
+        opacity: v,
+        child: Transform.translate(offset: Offset(0, (1 - v) * 16), child: child),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: [
+                  AppColors.roseSoft.withValues(alpha: 0.55),
+                  AppColors.lavenderSoft.withValues(alpha: 0.55),
+                ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              ),
+              child: Icon(icon, size: 46, color: AppColors.rose),
+            ),
+            const SizedBox(height: 16),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium),
+            if (text != null) ...[
+              const SizedBox(height: 6),
+              Text(text!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
+            if (action != null && onAction != null) ...[
+              const SizedBox(height: 14),
+              FilledButton.tonal(onPressed: onAction, child: Text(action!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 1.1.1: makro halkası (alınan / hedef gram). Açılışta dolarak gelir.
+class MacroRing extends StatelessWidget {
+  final String label;
+  final double value;
+  final double target;
+  final Color color;
+  final double size;
+  const MacroRing(
+      {super.key,
+      required this.label,
+      required this.value,
+      required this.target,
+      required this.color,
+      this.size = 86});
+
+  @override
+  Widget build(BuildContext context) {
+    final frac = target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
+    return Semantics(
+      label: '$label ${value.round()} / ${target.round()} g',
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: frac),
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (context, f, _) => SizedBox(
+            width: size,
+            height: size,
+            child: Stack(alignment: Alignment.center, children: [
+              CustomPaint(size: Size.square(size), painter: _MacroPainter(f, color)),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('${value.round()}',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: color)),
+                Text('/ ${target.round()} g',
+                    style: TextStyle(fontSize: 10, color: AppColors.inkSoft)),
+              ]),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+      ]),
+    );
+  }
+}
+
+class _MacroPainter extends CustomPainter {
+  final double frac;
+  final Color color;
+  _MacroPainter(this.frac, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2 - 6;
+    canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..color = color.withValues(alpha: 0.15)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 9);
+    canvas.drawArc(
+        Rect.fromCircle(center: c, radius: r),
+        -math.pi / 2,
+        2 * math.pi * frac,
+        false,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 9
+          ..strokeCap = StrokeCap.round);
+  }
+
+  @override
+  bool shouldRepaint(_MacroPainter o) => o.frac != frac || o.color != color;
 }

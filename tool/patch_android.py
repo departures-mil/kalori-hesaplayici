@@ -15,7 +15,10 @@ perms = """
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 """
 if "REQUEST_INSTALL_PACKAGES" not in m:
     m = m.replace("<application", perms + "    <application", 1)
@@ -23,6 +26,7 @@ m = re.sub(r'android:label="[^"]*"', 'android:label="Kalori Hesaplayıcı"', m, 
 if 'android:usesCleartextTraffic' not in m:
     m = m.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
 # FileProvider for APK install (open_filex ships its own provider; nothing to add)
+# (1.1.1 alıcıları aşağıda, Kotlin paketi bilindikten sonra eklenir)
 open(mf, "w", encoding="utf-8").write(m)
 
 # ---------- build.gradle(.kts) ----------
@@ -37,6 +41,9 @@ if os.path.exists(kts):
     g = open(kts, encoding="utf-8").read()
     g = re.sub(r'minSdk\s*=\s*[^\n]+', 'minSdk = 23', g)
     g = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.departures.kalori"', g)
+    # 1.1.1: APK küçültme — yalnız ARM işlemciler (bütün telefonlar); x86 emülatör kitaplıkları atılır
+    if "abiFilters" not in g:
+        g = g.replace("minSdk = 23", 'minSdk = 23\n        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }', 1)
     signing = '''
     signingConfigs {
         create("release") {
@@ -60,6 +67,8 @@ elif os.path.exists(groovy):
     g = open(groovy, encoding="utf-8").read()
     g = re.sub(r'minSdk(Version)?\s*=?\s*[^\n]+', 'minSdk = 23', g)
     g = re.sub(r'applicationId\s*=?\s*"[^"]+"', 'applicationId = "com.departures.kalori"', g)
+    if "abiFilters" not in g:
+        g = g.replace("minSdk = 23", "minSdk = 23\n        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }", 1)
     signing = '''
     signingConfigs {
         release {
@@ -81,47 +90,497 @@ elif os.path.exists(groovy):
 else:
     sys.exit("no app build.gradle found")
 
-# ---------- MainActivity (method channel: minimize) ----------
+# ---------- MainActivity + 1.1.1 yerel parçalar ----------
+# Kanallar: kalori/window (küçült), kalori/app (apkInfo, konuşma, hatırlatma, widget,
+# Drive'a kaydet / aç, Material You renkleri).
 acts = glob.glob(os.path.join(android, "app", "src", "main", "kotlin", "**", "MainActivity.kt"), recursive=True)
 if not acts:
     sys.exit("MainActivity.kt not found")
 act = acts[0]
+kdir = os.path.dirname(act)
 pkg = re.search(r'package\s+([\w.]+)', open(act, encoding="utf-8").read()).group(1)
-open(act, "w", encoding="utf-8").write(f'''package {pkg}
 
+
+def kt(name, body):
+    open(os.path.join(kdir, name), "w", encoding="utf-8").write("package " + pkg + "\n\n" + body)
+
+
+kt("MainActivity.kt", r"""
+import android.Manifest
+import android.app.Activity
+import android.app.NotificationManager
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.speech.RecognizerIntent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {{
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
+class MainActivity : FlutterActivity() {
+    private var pending: MethodChannel.Result? = null
+    private var pendingContent: String? = null
+
+    companion object {
+        const val REQ_SPEECH = 4701
+        const val REQ_SAVE = 4702
+        const val REQ_OPEN = 4703
+        const val REQ_NOTIF = 4704
+    }
+
+    private fun takePending(): MethodChannel.Result? {
+        val r = pending
+        pending = null
+        return r
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kalori/window")
-            .setMethodCallHandler {{ call, result ->
-                when (call.method) {{
-                    "minimize" -> {{ moveTaskToBack(true); result.success(null) }}
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "minimize" -> { moveTaskToBack(true); result.success(null) }
                     else -> result.notImplemented()
-                }}
-            }}
-        // Güncelleme (ortak çekirdek): kurulu APK'nın yolu → FCD1 yaması bu dosyaya uygulanır
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kalori/app")
-            .setMethodCallHandler {{ call, result ->
-                when (call.method) {{
-                    "apkInfo" -> {{
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Güncelleme (ortak çekirdek): kurulu APK'nın yolu → FCD1 yaması bu dosyaya uygulanır
+                    "apkInfo" -> {
                         val ai = applicationInfo
                         val splits = ai.splitSourceDirs
                         result.success(mapOf(
                             "path" to ai.sourceDir,
                             "split" to (splits != null && splits.isNotEmpty())
                         ))
-                    }}
+                    }
+                    "speech" -> {
+                        takePending()?.success(null)
+                        val lang = call.argument<String>("lang") ?: "tr-TR"
+                        val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang)
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, lang)
+                            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                        }
+                        try {
+                            pending = result
+                            startActivityForResult(i, REQ_SPEECH)
+                        } catch (e: ActivityNotFoundException) {
+                            pending = null
+                            result.success(null)
+                        }
+                    }
+                    "notifPermission" -> {
+                        val nm = getSystemService(NotificationManager::class.java)
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            takePending()?.success(false)
+                            pending = result
+                            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+                        } else {
+                            result.success(nm?.areNotificationsEnabled() ?: true)
+                        }
+                    }
+                    "reminders" -> {
+                        KaloriAlarms.setAll(this, call.argument<String>("list") ?: "[]")
+                        result.success(null)
+                    }
+                    "widget" -> {
+                        getSharedPreferences(KaloriWidget.PREFS, MODE_PRIVATE).edit()
+                            .putString("json", call.argument<String>("json") ?: "{}").apply()
+                        KaloriWidget.refreshAll(this)
+                        result.success(null)
+                    }
+                    "saveDoc" -> {
+                        takePending()?.success(false)
+                        pendingContent = call.argument<String>("content") ?: ""
+                        val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_TITLE, call.argument<String>("name") ?: "kalori-yedek.json")
+                        }
+                        try {
+                            pending = result
+                            startActivityForResult(i, REQ_SAVE)
+                        } catch (e: ActivityNotFoundException) {
+                            pending = null
+                            result.success(false)
+                        }
+                    }
+                    "openDoc" -> {
+                        takePending()?.success(null)
+                        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                        }
+                        try {
+                            pending = result
+                            startActivityForResult(i, REQ_OPEN)
+                        } catch (e: ActivityNotFoundException) {
+                            pending = null
+                            result.success(null)
+                        }
+                    }
+                    "dynamicColors" -> {
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            val ids = mapOf(
+                                "a1_100" to android.R.color.system_accent1_100,
+                                "a1_200" to android.R.color.system_accent1_200,
+                                "a1_600" to android.R.color.system_accent1_600,
+                                "a1_700" to android.R.color.system_accent1_700,
+                                "a1_800" to android.R.color.system_accent1_800,
+                                "a3_200" to android.R.color.system_accent3_200,
+                                "a3_600" to android.R.color.system_accent3_600,
+                                "n1_10" to android.R.color.system_neutral1_10,
+                                "n1_50" to android.R.color.system_neutral1_50,
+                                "n1_800" to android.R.color.system_neutral1_800,
+                                "n1_900" to android.R.color.system_neutral1_900
+                            )
+                            result.success(ids.mapValues { (getColor(it.value).toLong() and 0xFFFFFFFFL) })
+                        } else {
+                            result.success(null)
+                        }
+                    }
                     else -> result.notImplemented()
-                }}
-            }}
-    }}
-}}
-''')
+                }
+            }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQ_SPEECH -> {
+                val list = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                takePending()?.success(if (resultCode == Activity.RESULT_OK) list?.firstOrNull() else null)
+            }
+            REQ_SAVE -> {
+                val r = takePending()
+                val uri = data?.data
+                val content = pendingContent ?: ""
+                pendingContent = null
+                if (resultCode != Activity.RESULT_OK || uri == null) {
+                    r?.success(false)
+                    return
+                }
+                Thread {
+                    val ok = try {
+                        contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+                        true
+                    } catch (e: Exception) {
+                        false
+                    }
+                    runOnUiThread { r?.success(ok) }
+                }.start()
+            }
+            REQ_OPEN -> {
+                val r = takePending()
+                val uri = data?.data
+                if (resultCode != Activity.RESULT_OK || uri == null) {
+                    r?.success(null)
+                    return
+                }
+                Thread {
+                    val text = try {
+                        contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    runOnUiThread { r?.success(text) }
+                }.start()
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_NOTIF) {
+            takePending()?.success(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+        }
+    }
+}
+""")
+
+kt("KaloriAlarms.kt", r"""
+import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+/** 1.1.1: günlük hatırlatmalar (AlarmManager, tam saat izni gerekmez). */
+object KaloriAlarms {
+    const val PREFS = "kalori_reminders"
+    const val CHANNEL = "kalori_reminders"
+
+    private fun pi(ctx: Context, id: Int, o: JSONObject?): PendingIntent {
+        val i = Intent(ctx, ReminderReceiver::class.java).setAction("kalori.REMINDER.$id")
+        if (o != null) i.putExtra("json", o.toString())
+        return PendingIntent.getBroadcast(ctx, id, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    fun nextTime(hour: Int, minute: Int): Long {
+        val c = Calendar.getInstance()
+        c.set(Calendar.HOUR_OF_DAY, hour)
+        c.set(Calendar.MINUTE, minute)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        if (c.timeInMillis <= System.currentTimeMillis() + 5000) c.add(Calendar.DAY_OF_YEAR, 1)
+        return c.timeInMillis
+    }
+
+    fun schedule(ctx: Context, o: JSONObject) {
+        val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val t = nextTime(o.optInt("hour", 9), o.optInt("minute", 0))
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi(ctx, o.optInt("id"), o))
+    }
+
+    /** Eskileri iptal eder, yenileri kurar ve saklar (yeniden başlatmada geri kurulur). */
+    fun setAll(ctx: Context, json: String) {
+        val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val old = try { JSONArray(sp.getString("list", "[]")) } catch (e: Exception) { JSONArray() }
+        for (k in 0 until old.length()) {
+            am.cancel(pi(ctx, old.getJSONObject(k).optInt("id"), null))
+        }
+        val list = try { JSONArray(json) } catch (e: Exception) { JSONArray() }
+        sp.edit().putString("list", list.toString()).apply()
+        if (list.length() > 0) channel(ctx)
+        for (k in 0 until list.length()) schedule(ctx, list.getJSONObject(k))
+    }
+
+    fun rescheduleAll(ctx: Context) {
+        val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val list = try { JSONArray(sp.getString("list", "[]")) } catch (e: Exception) { JSONArray() }
+        for (k in 0 until list.length()) schedule(ctx, list.getJSONObject(k))
+    }
+
+    fun channel(ctx: Context) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            if (nm?.getNotificationChannel(CHANNEL) == null) {
+                nm?.createNotificationChannel(
+                    NotificationChannel(CHANNEL, "Kalori", NotificationManager.IMPORTANCE_DEFAULT))
+            }
+        }
+    }
+
+    fun today(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+}
+
+class ReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val o = try { JSONObject(intent.getStringExtra("json") ?: return) } catch (e: Exception) { return }
+        // yarın aynı saatte yeniden
+        KaloriAlarms.schedule(ctx, o)
+        // akıllı atlama: öğün zaten girildiyse / su hedefi tamamsa gösterme
+        val w = try {
+            JSONObject(ctx.getSharedPreferences(KaloriWidget.PREFS, Context.MODE_PRIVATE).getString("json", "{}") ?: "{}")
+        } catch (e: Exception) { JSONObject() }
+        val kind = o.optString("kind")
+        if (w.optString("day") == KaloriAlarms.today()) {
+            if (kind.startsWith("meal:")) {
+                val meal = kind.substring(5)
+                if (w.optString("meals").split(",").contains(meal)) return
+            }
+            if (kind == "water" && w.optInt("waterGoal", 0) > 0 && w.optInt("water", 0) >= w.optInt("waterGoal", 0)) return
+        }
+        KaloriAlarms.channel(ctx)
+        val open = PendingIntent.getActivity(ctx, 0,
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        @Suppress("DEPRECATION")
+        val b = if (Build.VERSION.SDK_INT >= 26) android.app.Notification.Builder(ctx, KaloriAlarms.CHANNEL)
+                else android.app.Notification.Builder(ctx)
+        val n = b.setSmallIcon(R.drawable.ic_stat_kalori)
+            .setContentTitle(o.optString("title"))
+            .setContentText(o.optString("body"))
+            .setStyle(android.app.Notification.BigTextStyle().bigText(o.optString("body")))
+            .setColor(0xFFE75480.toInt())
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        try {
+            ctx.getSystemService(NotificationManager::class.java)?.notify(o.optInt("id"), n)
+        } catch (e: SecurityException) {
+        }
+    }
+}
+
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        KaloriAlarms.rescheduleAll(ctx)
+        KaloriWidget.refreshAll(ctx)
+    }
+}
+""")
+
+kt("KaloriWidget.kt", r"""
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.view.View
+import android.widget.RemoteViews
+import org.json.JSONObject
+
+/** 1.1.1: ana ekran widget'ı — bugün kalan kalori, ilerleme, su. */
+class KaloriWidget : AppWidgetProvider() {
+    companion object {
+        const val PREFS = "kalori_widget"
+
+        fun refreshAll(ctx: Context) {
+            val m = AppWidgetManager.getInstance(ctx)
+            val ids = m.getAppWidgetIds(ComponentName(ctx, KaloriWidget::class.java))
+            for (id in ids) update(ctx, m, id)
+        }
+
+        fun update(ctx: Context, m: AppWidgetManager, id: Int) {
+            val o = try {
+                JSONObject(ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("json", "{}") ?: "{}")
+            } catch (e: Exception) { JSONObject() }
+            val goal = o.optInt("goal", 2000)
+            val sameDay = o.optString("day") == KaloriAlarms.today()
+            val consumed = if (sameDay) o.optInt("consumed", 0) else 0
+            val water = if (sameDay) o.optInt("water", 0) else 0
+            val left = if (sameDay) o.optInt("left", goal) else goal
+            val leftLabel = if (sameDay) o.optString("leftLabel", "") else o.optString("emptyLeftLabel", "")
+            val kcal = o.optString("kcal", "kcal")
+            val v = RemoteViews(ctx.packageName, R.layout.kalori_widget)
+            v.setTextViewText(R.id.w_title, o.optString("title", "Kalori Hesaplayıcı"))
+            v.setTextViewText(R.id.w_left, left.toString())
+            v.setTextViewText(R.id.w_left_label, if (leftLabel.isEmpty()) kcal else "$leftLabel · $kcal")
+            v.setProgressBar(R.id.w_progress, 100, if (goal > 0) minOf(100, consumed * 100 / goal) else 0, false)
+            v.setTextViewText(R.id.w_bottom,
+                "$consumed / $goal $kcal   💧 $water/${o.optInt("waterGoal", 8)}")
+            v.setViewVisibility(R.id.w_progress, View.VISIBLE)
+            val open = PendingIntent.getActivity(ctx, 1,
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            v.setOnClickPendingIntent(R.id.w_root, open)
+            m.updateAppWidget(id, v)
+        }
+    }
+
+    override fun onUpdate(ctx: Context, m: AppWidgetManager, ids: IntArray) {
+        for (id in ids) update(ctx, m, id)
+    }
+}
+""")
 print("patched", act)
+
+# ---------- 1.1.1: kaynak dosyalar (widget görünümü, bildirim simgesi) ----------
+res = os.path.join(android, "app", "src", "main", "res")
+
+
+def res_file(rel, text):
+    path = os.path.join(res, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(text)
+
+
+res_file("drawable/ic_stat_kalori.xml", """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2C12,2 5,10 5,15a7,7 0,0 0,14 0C19,10 12,2 12,2zM12,19a4,4 0,0 1,-4 -4h2a2,2 0,0 0,2 2z"/>
+</vector>
+""")
+res_file("drawable/kalori_widget_bg.xml", """<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="315" android:startColor="#FFE75480" android:endColor="#FF9B7EDE"/>
+    <corners android:radius="24dp"/>
+</shape>
+""")
+res_file("drawable/kalori_widget_progress.xml", """<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape><corners android:radius="6dp"/><solid android:color="#55FFFFFF"/></shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip><shape><corners android:radius="6dp"/><solid android:color="#FFFFFFFF"/></shape></clip>
+    </item>
+</layer-list>
+""")
+res_file("layout/kalori_widget.xml", """<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="@drawable/kalori_widget_bg">
+    <TextView android:id="@+id/w_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#DDFFFFFF" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end"/>
+    <TextView android:id="@+id/w_left" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" android:textColor="#FFFFFFFF" android:textSize="34sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/w_left_label" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#EEFFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end"/>
+    <ProgressBar android:id="@+id/w_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="8dp"
+        android:max="100" android:progress="0" android:progressDrawable="@drawable/kalori_widget_progress"/>
+    <TextView android:id="@+id/w_bottom" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:textColor="#EEFFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end"/>
+</LinearLayout>
+""")
+res_file("xml/kalori_widget_info.xml", """<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:minResizeWidth="140dp"
+    android:minResizeHeight="90dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/kalori_widget"
+    android:previewLayout="@layout/kalori_widget"
+    android:widgetCategory="home_screen"/>
+""")
+
+# ---------- 1.1.1: manifest — alıcılar, widget, konuşma tanıma görünürlüğü ----------
+m = open(mf, encoding="utf-8").read()
+if "ReminderReceiver" not in m:
+    recv = f"""
+        <receiver android:name="{pkg}.ReminderReceiver" android:exported="false" />
+        <receiver android:name="{pkg}.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="{pkg}.KaloriWidget" android:exported="true" android:label="Kalori Hesaplayıcı">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/kalori_widget_info" />
+        </receiver>
+    </application>"""
+    m = m.replace("</application>", recv, 1)
+q = """
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>"""
+if "RECOGNIZE_SPEECH" not in m:
+    if "<queries>" in m:
+        m = m.replace("<queries>", "<queries>" + q, 1)
+    else:
+        m = m.replace("</manifest>", "    <queries>" + q + "\n    </queries>\n</manifest>", 1)
+open(mf, "w", encoding="utf-8").write(m)
+print("patched manifest (1.1.1)")
 
 # ---------- remove generated widget test (not maintained) ----------
 t = os.path.join(root, "test", "widget_test.dart")

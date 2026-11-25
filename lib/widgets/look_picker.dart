@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/fc_tokens.dart';
 import '../core/look.dart';
 import '../core/theme.dart';
 import '../data/settings.dart';
@@ -29,10 +28,10 @@ class LookPicker extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final id in kFcSchemeIds)
+                for (final id in look.schemeIds)
                   _SchemeChip(
                     id: id,
-                    label: FcLook.schemeLabel(id, lang),
+                    label: id == FcLook.systemScheme ? s['look_system'] : FcLook.schemeLabel(id, lang),
                     selected: look.scheme == id,
                     dark: look.dark,
                     onTap: () => look.setScheme(id),

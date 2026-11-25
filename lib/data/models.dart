@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 class Food {
@@ -301,4 +302,73 @@ class DaySummary {
   final double kcal;
   final int entries;
   DaySummary(this.day, this.kcal, this.entries);
+}
+
+/// 1.1.1: favori öğün ('fav') ya da tarif ('recipe').
+/// Tarifte [items] malzemelerdir; [servings] porsiyon sayısı, [cooked] pişmiş
+/// toplam ağırlık (gram, 0 = malzemelerin toplamı).
+class SavedMeal {
+  final String? uid;
+  final String kind;
+  final String name;
+  final List<FoodItem> items;
+  final double servings;
+  final double cooked;
+  final int uses;
+
+  const SavedMeal({
+    this.uid,
+    required this.kind,
+    required this.name,
+    required this.items,
+    this.servings = 1,
+    this.cooked = 0,
+    this.uses = 0,
+  });
+
+  bool get isRecipe => kind == 'recipe';
+  double get rawGrams => items.fold(0.0, (s, i) => s + i.grams);
+  double get totalGrams => cooked > 0 ? cooked : rawGrams;
+  double get kcal => items.fold(0.0, (s, i) => s + i.kcal);
+  double get protein => items.fold(0.0, (s, i) => s + i.protein);
+  double get carbs => items.fold(0.0, (s, i) => s + i.carbs);
+  double get fat => items.fold(0.0, (s, i) => s + i.fat);
+  double get perServingKcal => servings > 0 ? kcal / servings : kcal;
+  double get perServingGrams => servings > 0 ? totalGrams / servings : totalGrams;
+
+  /// Tarifin [grams] gramı tek bir yiyecek satırı olarak (100 g değerleri hesaplanır).
+  FoodItem asFoodItem(double grams) {
+    final t = totalGrams <= 0 ? 1.0 : totalGrams;
+    return FoodItem(
+      name: name,
+      grams: grams.roundToDouble(),
+      kcalPer100: kcal / t * 100,
+      proteinPer100: protein / t * 100,
+      carbsPer100: carbs / t * 100,
+      fatPer100: fat / t * 100,
+      dataSource: 'user',
+      confirmed: true,
+    );
+  }
+
+  Map<String, Object?> toRow() => {
+        'kind': kind,
+        'name': name,
+        'items': jsonEncode(items.map((i) => i.toJson()).toList()),
+        'servings': servings,
+        'cooked': cooked,
+        'uses': uses,
+      };
+
+  factory SavedMeal.fromRow(Map<String, Object?> r) => SavedMeal(
+        uid: r['uid'] as String?,
+        kind: r['kind'] as String? ?? 'fav',
+        name: r['name'] as String? ?? '',
+        items: (jsonDecode(r['items'] as String? ?? '[]') as List)
+            .map((j) => FoodItem.fromJson(Map<String, dynamic>.from(j as Map)))
+            .toList(),
+        servings: (r['servings'] as num?)?.toDouble() ?? 1,
+        cooked: (r['cooked'] as num?)?.toDouble() ?? 0,
+        uses: (r['uses'] as num?)?.toInt() ?? 0,
+      );
 }

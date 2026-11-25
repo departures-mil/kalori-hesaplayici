@@ -12,7 +12,11 @@ import 'package:kalori_hesaplayici/core/theme.dart';
 import 'package:kalori_hesaplayici/data/merge_rule.dart';
 import 'package:kalori_hesaplayici/data/news.dart';
 import 'package:kalori_hesaplayici/data/settings.dart';
+import 'package:kalori_hesaplayici/data/models.dart';
 import 'package:kalori_hesaplayici/l10n/strings_fc.dart';
+import 'package:kalori_hesaplayici/l10n/strings_v12.dart';
+import 'package:kalori_hesaplayici/services/cycle.dart';
+import 'package:kalori_hesaplayici/services/text_entry.dart';
 import 'package:kalori_hesaplayici/services/fc_contact.dart';
 import 'package:kalori_hesaplayici/services/fc_crash.dart';
 import 'package:kalori_hesaplayici/services/update_service.dart';
@@ -265,6 +269,94 @@ void main() {
       expect(RegExp(r"\.delete\(\s*'entries'").hasMatch(src), isFalse);
       expect(src.contains('DELETE FROM'), isFalse);
       expect(src.contains('_backup(tx'), isTrue);
+    });
+  });
+
+  group('1.1.1', () {
+    test('metinler üç dilde ve yer tutucular aynı', () {
+      final tr = kStringsV12['tr']!;
+      for (final l in ['en', 'ar']) {
+        expect(kStringsV12[l]!.keys.toSet(), tr.keys.toSet(), reason: l);
+        for (final k in tr.keys) {
+          final a = RegExp(r'\{(\w+)\}').allMatches(tr[k]!).map((m) => m[1]).toSet();
+          final b = RegExp(r'\{(\w+)\}').allMatches(kStringsV12[l]![k]!).map((m) => m[1]).toSet();
+          expect(b, a, reason: '$l.$k');
+        }
+      }
+    });
+
+    test('cümle parçalara ayrılır (tr / en / ar)', () {
+      expect(TextEntry.split('1 kase mercimek çorbası, 2 dilim ekmek'), ['1 kase mercimek çorbası', '2 dilim ekmek']);
+      expect(TextEntry.split('2 yumurta ve 1 bardak çay'), ['2 yumurta', '1 bardak çay']);
+      expect(TextEntry.split('two eggs and a slice of toast'), ['two eggs', 'a slice of toast']);
+      expect(TextEntry.split('صحن شوربة عدس و ٢ شريحة خبز'), ['صحن شوربة عدس', '2 شريحة خبز']);
+      expect(TextEntry.split('1,5 porsiyon pilav'), ['1.5 porsiyon pilav']);
+    });
+
+    test('miktar + ölçü + ad', () {
+      var c = TextEntry.chunk('1 kase mercimek çorbası');
+      expect(c.qty, 1);
+      expect(c.unit, 'bowl');
+      expect(c.name, 'mercimek çorbası');
+      c = TextEntry.chunk('iki dilim ekmek');
+      expect((c.qty, c.unit, c.name), (2.0, 'slice', 'ekmek'));
+      c = TextEntry.chunk('150g tavuk göğsü');
+      expect((c.qty, c.unit, c.name), (150.0, 'g', 'tavuk göğsü'));
+      c = TextEntry.chunk('bir buçuk su bardağı ayran');
+      expect((c.qty, c.unit, c.name), (1.5, 'glass', 'ayran'));
+      c = TextEntry.chunk('a slice of toast');
+      expect((c.qty, c.unit, c.name), (1.0, 'slice', 'toast'));
+      c = TextEntry.chunk('نصف كوب حليب');
+      expect((c.qty, c.unit, c.name), (0.5, 'glass', 'حليب'));
+      c = TextEntry.chunk('elma');
+      expect((c.qty, c.unit, c.name), (1.0, null, 'elma'));
+    });
+
+    test('adet döngüsü: evre ve tahmin', () {
+      final starts = [DateTime(2026, 9, 1), DateTime(2026, 9, 29), DateTime(2026, 10, 27)];
+      expect(Cycle.averageLength(starts, 30), 28);
+      final i = Cycle.compute(starts, DateTime(2026, 10, 29))!;
+      expect(i.day, 3);
+      expect(i.phase, 'menstrual');
+      expect(i.nextStart, DateTime(2026, 11, 24));
+      expect(Cycle.compute(starts, DateTime(2026, 11, 9))!.phase, 'ovulation'); // gün 14
+      expect(Cycle.compute(starts, DateTime(2026, 11, 3))!.phase, 'follicular');
+      expect(Cycle.compute(starts, DateTime(2026, 11, 15))!.phase, 'luteal');
+      expect(Cycle.compute(starts, DateTime(2026, 11, 30))!.late, isTrue);
+      expect(Cycle.compute([], DateTime(2026, 11, 1)), isNull);
+    });
+
+    test('tarif: porsiyon başına kalori', () {
+      final r = SavedMeal(kind: 'recipe', name: 'Mercimek', servings: 4, cooked: 1200, items: [
+        FoodItem(name: 'mercimek', grams: 200, kcalPer100: 350, proteinPer100: 24),
+        FoodItem(name: 'yağ', grams: 20, kcalPer100: 900, fatPer100: 100),
+      ]);
+      expect(r.kcal, 880);
+      expect(r.perServingKcal, 220);
+      expect(r.perServingGrams, 300);
+      final it = r.asFoodItem(300);
+      expect(it.kcal.round(), 220);
+      final row = SavedMeal.fromRow({...r.toRow(), 'uid': 'x'});
+      expect(row.items.length, 2);
+      expect(row.perServingKcal, 220);
+    });
+
+    test('güvenli alt sınır ve su hedefi', () async {
+      SharedPreferences.setMockInitialValues({'customGoal': 900, 'weight': 60.0});
+      await Settings.instance.init();
+      expect(Settings.instance.dailyGoal, 1200);
+      Settings.instance.setProfile(special: Special.breastfeeding);
+      expect(Settings.instance.dailyGoal, 1800);
+      expect(Settings.instance.waterGoal, 14); // (60*35+700)/200
+      Settings.instance.setProfile(special: Special.none, customGoal: 1700);
+      expect(Settings.instance.dailyGoal, 1700);
+    });
+
+    test('db.dart 1.1.1: favoriler / döngü eşitlenir, kalıcı silme yok', () {
+      final src = File('lib/data/db.dart').readAsStringSync();
+      expect(src.contains("'saved': await d.query('saved')"), isTrue);
+      expect(src.contains("'period': await d.query('period')"), isTrue);
+      expect(RegExp(r"\.delete\(\s*'(saved|period)'").hasMatch(src), isFalse);
     });
   });
 

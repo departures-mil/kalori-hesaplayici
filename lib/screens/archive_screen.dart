@@ -17,6 +17,7 @@ class ArchiveScreen extends StatefulWidget {
 
 class _ArchiveScreenState extends State<ArchiveScreen> {
   List<DiaryEntry>? _items;
+  List<SavedMeal> _saved = [];
   int _conflicts = 0;
 
   @override
@@ -28,9 +29,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Future<void> _load() async {
     final a = await AppDb.instance.archivedEntries();
     final c = await AppDb.instance.conflictCount();
+    final sv = await AppDb.instance.archivedSaved();
     if (mounted) {
       setState(() {
         _items = a;
+        _saved = sv;
         _conflicts = c;
       });
     }
@@ -86,6 +89,39 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                       ]),
                     ),
                   ),
+                if (_saved.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(s['arch_saved'], style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  for (final m in _saved)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: SoftCard(
+                        padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 10),
+                        child: Row(children: [
+                          Icon(m.isRecipe ? Icons.soup_kitchen_rounded : Icons.star_rounded,
+                              color: AppColors.inkSoft, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(m.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                          TextButton.icon(
+                            onPressed: () async {
+                              await AppDb.instance.restoreSaved(m.uid!);
+                              if (!context.mounted) return;
+                              showSnack(context, s['arch_restored']);
+                              _load();
+                            },
+                            icon: const Icon(Icons.restore_rounded, size: 18),
+                            label: Text(s['arch_restore']),
+                          ),
+                        ]),
+                      ),
+                    ),
+                ],
               ],
             ),
     );

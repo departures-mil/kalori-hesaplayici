@@ -11,7 +11,9 @@ import '../services/online_analyzer.dart';
 import '../widgets/accuracy_card.dart';
 import '../widgets/common.dart';
 import '../widgets/look_picker.dart';
+import '../services/reminders.dart';
 import '../widgets/usage_card.dart';
+import '../widgets/v12_cards.dart';
 import '../widgets/window_controls.dart';
 import 'archive_screen.dart';
 import 'contact_section.dart';
@@ -48,6 +50,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       weight: double.tryParse(_weight.text.replaceAll(',', '.')),
       customGoal: int.tryParse(_custom.text) ?? 0,
     );
+    st.profileSet = true;
+    final c = st.customGoal;
+    if (c != null && c < st.minSafeGoal) {
+      showSnack(context, S.of(context).f('pf_floor', {'n': st.minSafeGoal}));
+    }
+    Reminders.pushToday();
     setState(() {});
   }
 
@@ -118,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                        '${s['calculated_goal']}: ${st.calculatedGoal} ${s['kcal']}',
+                        '${s['calculated_goal']}: ${st.calculatedGoal} ${s['kcal']}\n${s['daily_goal']}: ${st.dailyGoal} ${s['kcal']}',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   FilledButton(
@@ -132,6 +140,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        _section(s['hl_title']),
+        HealthCard(),
+        _section(s['rm_title']),
+        ReminderCard(),
         _section(s['api_keys']),
         SoftCard(
           child: Column(
@@ -224,6 +236,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        _section(s['bk_title']),
+        BackupCard(),
         _section(s['usage_title']),
         UsageCard(),
         _section('✦ ${FcAgent.instance.t('title')}'),

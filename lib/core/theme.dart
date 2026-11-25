@@ -63,6 +63,11 @@ ThemeData buildTheme({String lang = 'tr'}) {
       bodySmall: TextStyle(color: p.muted, fontSize: 12),
     ),
     iconTheme: IconThemeData(color: ink),
+    // 1.1.1: yumuşak sayfa geçişleri (Android'de yakınlaşarak açılır)
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    }),
     appBarTheme: AppBarTheme(
       backgroundColor: p['topbar-bg'],
       surfaceTintColor: Colors.transparent,

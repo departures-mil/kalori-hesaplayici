@@ -93,6 +93,12 @@ void main() {
       FcLook.instance.setTheme(c.$3);
       await t.pumpWidget(RepaintBoundary(key: _k, child: const KaloriApp()));
       await _shot(t, '$name-1-ana');
+      await t.drag(find.byType(ListView).first, const Offset(0, -700), warnIfMissed: false);
+      await _shot(t, '$name-1b-ana-alt');
+      await t.tap(find.byIcon(Icons.bar_chart_outlined));
+      await _shot(t, '$name-1c-istatistik');
+      await t.drag(find.byType(ListView).at(2), const Offset(0, -900), warnIfMissed: false);
+      await _shot(t, '$name-1d-istatistik-alt');
       await t.tap(find.byIcon(Icons.settings_outlined));
       await _shot(t, '$name-2-ayarlar');
       await t.drag(find.byType(ListView).last, const Offset(0, -1700));
@@ -103,9 +109,11 @@ void main() {
         await t.pumpWidget(RepaintBoundary(key: _k, child: const KaloriApp()));
         await _shot(t, '$name-4-rehber-dil');
         await t.tap(find.text('İleri'));
-        await _shot(t, '$name-5-rehber-gorunum');
+        await _shot(t, '$name-5-rehber-hedef');
         await t.tap(find.text('İleri'));
-        await _shot(t, '$name-6-rehber-anahtar');
+        await _shot(t, '$name-6-rehber-gorunum');
+        await t.tap(find.text('İleri'));
+        await _shot(t, '$name-7-rehber-anahtar');
         Settings.instance.welcomed = true;
       }
       await t.pumpWidget(const SizedBox());
